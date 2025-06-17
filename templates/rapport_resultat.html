@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Rapport de données</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container py-4">
+
+    <a href="/" class="btn btn-secondary mb-3 w-100">🏠 Retour à l'accueil</a>
+
+    <h2 class="text-center mb-4">Rapport de données - Semaine {{ semaine }} / {{ annee }}</h2>
+
+    {% if rapports %}
+        {% for bloc in rapports %}
+            <h3 class="text-center my-4">{{ bloc.site }} - {{ bloc.parametre }}</h3>
+            <div class="text-center">
+                <img src="data:image/png;base64,{{ bloc.plot }}" class="img-fluid mb-5">
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-warning text-center mt-5">Aucune donnée trouvée pour cette semaine et cette année.</div>
+    {% endif %}
+
+</body>
+</html>

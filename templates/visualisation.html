@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualisation des mesures</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script>
+        const mesures = {{ mesures_par_site | tojson }};
+        function updateParametres() {
+            const site = document.getElementById("site").value;
+            const parametreSelect = document.getElementById("parametre");
+            parametreSelect.innerHTML = "";
+            mesures[site].forEach(param => {
+                const option = document.createElement("option");
+                option.value = param;
+                option.text = param;
+                parametreSelect.add(option);
+            });
+            updateSemaine();
+        }
+
+        function updateSemaine() {
+            const parametre = document.getElementById("parametre").value;
+            const semaineDiv = document.getElementById("semaine_div");
+            const anneeDiv = document.getElementById("annee_div");
+
+            if (parametre === "Coagulant" || parametre === "Eau potable" || parametre === "Floculant") {
+                semaineDiv.style.display = "none";
+                anneeDiv.style.display = "none";
+            } else {
+                semaineDiv.style.display = "block";
+                anneeDiv.style.display = "block";
+            }
+        }
+    </script>
+</head>
+<body class="container py-4">
+
+    <a href="/" class="btn btn-secondary mb-3 w-100">🏠 Retour à l'accueil</a>
+
+    <h2 class="text-center mb-4">Visualisation des mesures</h2>
+
+    <form method="post">
+        <div class="mb-3">
+            <label>Site</label>
+            <select class="form-select" name="site" id="site" onchange="updateParametres()">
+                {% for s in sites %}
+                    <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label>Paramètre</label>
+            <select class="form-select" name="parametre" id="parametre" onchange="updateSemaine()">
+                <!-- rempli dynamiquement -->
+            </select>
+        </div>
+
+        <div class="mb-3" id="semaine_div">
+            <label>Semaine</label>
+            <input type="number" name="semaine" class="form-control">
+        </div>
+
+        <div class="mb-3" id="annee_div">
+            <label>Année</label>
+            <input type="number" name="annee" class="form-control">
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Afficher</button>
+    </form>
+
+    {% if plot_url %}
+        <div class="mt-5 text-center">
+            <h3>Résultat</h3>
+            <img src="data:image/png;base64,{{ plot_url }}" class="img-fluid">
+        </div>
+    {% endif %}
+
+    <script>
+        updateParametres();
+    </script>
+</body>
+</html>

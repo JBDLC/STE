@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Liste des rapports</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="container py-4">
+    <a href="/" class="btn btn-secondary mb-3 w-100">🏠 Retour à l'accueil</a>
+    <h2 class="text-center mb-4">Tous les rapports générés</h2>
+    <table class="table table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>Année</th>
+                <th>Semaine</th>
+                <th>Site</th>
+                <th>Date de génération</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rapports %}
+            <tr>
+                <td>{{ r.annee }}</td>
+                <td>{{ r.semaine }}</td>
+                <td>{{ r.site }}</td>
+                <td>{{ r.timestamp|replace('T', ' ')|slice(0, 19) }}</td>
+                <td>
+                    <a href="/rapport?semaine={{ r.semaine }}&annee={{ r.annee }}&site={{ r.site }}" class="btn btn-primary btn-sm">Voir</a>
+                    <a href="/rapport_pdf?semaine={{ r.semaine }}&annee={{ r.annee }}&site={{ r.site }}" class="btn btn-danger btn-sm">PDF</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% if not rapports %}
+        <div class="alert alert-info text-center">Aucun rapport généré pour l'instant.</div>
+    {% endif %}
+</body>
+</html> 

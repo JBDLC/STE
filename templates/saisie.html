@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Saisie de données</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script>
+        function updateDiff(id) {
+            const veille = parseFloat(document.getElementById("veille_" + id).innerText) || 0;
+            const saisie = parseFloat(document.getElementById(id).value) || 0;
+            const diff = saisie - veille;
+            document.getElementById("diff_" + id).innerText = isNaN(diff) ? "" : diff;
+        }
+    </script>
+</head>
+<body class="container py-4">
+
+    <a href="/" class="btn btn-secondary mb-3 w-100">🏠 Retour à l'accueil</a>
+
+    <h2 class="text-center mb-4">Saisie des mesures pour {{ site }}</h2>
+
+    <form method="post">
+        <div class="row fw-bold text-center mb-2">
+            <div class="col-4">Veille</div>
+            <div class="col-4">Saisie</div>
+            <div class="col-4">Différence</div>
+        </div>
+
+        {% for m in mesures %}
+            {% if m == "Coagulant" and not is_monday %}
+                <!-- On saute l'affichage de Coagulant sauf le lundi -->
+            {% else %}
+                <div class="row align-items-center mb-3">
+                    <div class="col-4 text-center small" id="veille_{{ m }}">{{ valeurs_veille[m] }}</div>
+                    <div class="col-4">
+                        <label class="form-label">{{ m }}</label>
+                        <input type="text" class="form-control text-center" name="{{ m }}" id="{{ m }}" value="{{ valeurs[m]|default('') }}" oninput="updateDiff('{{ m }}')">
+                    </div>
+                    <div class="col-4 text-center small" id="diff_{{ m }}">{{ valeurs_diff[m] }}</div>
+                </div>
+            {% endif %}
+        {% endfor %}
+
+        <div class="d-grid gap-2">
+            <button type="submit" name="sauvegarder" class="btn btn-primary btn-lg">💾 Sauvegarder</button>
+            <button type="submit" name="finaliser" class="btn btn-success btn-lg">✅ Valider définitivement</button>
+        </div>
+    </form>
+
+</body>
+</html>
