@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+
+{% block title %}Routines d'Exploitation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">
+        <i class="fas fa-clipboard-list"></i>
+        Routines d'Exploitation STE
+    </h1>
+
+    <div id="bloc-smp" class="mb-5"></div>
+    <div id="bloc-lpz" class="mb-5"></div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-excel"></i>
+                        Exporter les Données d'un Formulaire
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="formulaireSelect" class="form-label">Formulaire :</label>
+                        <select class="form-select" id="formulaireSelect">
+                            <option value="">Sélectionner un formulaire...</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-success w-100" id="exportBtn" disabled onclick="exporterFormulaire()">
+                        <i class="fas fa-file-excel"></i> Exporter les données
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye"></i>
+                        Voir un formulaire rempli
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label for="formulaireDetailSelect" class="form-label">Formulaire :</label>
+                            <select class="form-select" id="formulaireDetailSelect">
+                                <option value="">Sélectionner un formulaire...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="dateDetailSelect" class="form-label">Date :</label>
+                            <input type="date" class="form-control" id="dateDetailSelect">
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-info w-100" onclick="afficherFormulaireRempli()">
+                                <i class="fas fa-search"></i> Afficher
+                            </button>
+                        </div>
+                    </div>
+                    <div id="detail-formulaire-rempli" class="mt-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if current_user.role == 'admin' %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog"></i>
+                        Administration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Gérez les formulaires et importez les questions depuis Excel.</p>
+                    <a href="/admin_routines" class="btn btn-warning">
+                        <i class="fas fa-tools"></i>
+                        Administration des Routines
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.routines-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.routine-card {
+    flex: 1 1 250px;
+    min-width: 250px;
+    max-width: 350px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+}
+.routine-card h6 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+@media (max-width: 900px) {
+    .routines-row { flex-direction: column; }
+    .routine-card { max-width: 100%; }
+}
+@media (max-width: 600px) {
+  .routines-row {
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .routine-card {
+    display: none !important;
+  }
+  .routine-line {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0.3rem 0.2rem;
+    margin-bottom: 0.2rem;
+    min-width: 0;
+    width: 100%;
+  }
+  .routine-line h6 {
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0;
+    text-align: left;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .routine-line .btn {
+    font-size: 0.95rem;
+    padding: 0.32rem 0.7rem;
+    border-radius: 6px;
+    margin-left: 10px;
+    flex-shrink: 0;
+  }
+}
+</style>
+
+<script>
+let formulaires = [];
+let formulaireSelectionne = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+    chargerFormulaires();
+    const select = document.getElementById('formulaireSelect');
+    if (select) {
+        select.addEventListener('change', function() {
+            formulaireSelectionne = this.value;
+            document.getElementById('exportBtn').disabled = !formulaireSelectionne;
+        });
+    }
+});
+
+function chargerFormulaires() {
+    fetch('/api/routines/formulaires')
+        .then(response => response.json())
+        .then(data => {
+            formulaires = data;
+            // Bloc SMP
+            const blocSMP = document.getElementById('bloc-smp');
+            blocSMP.innerHTML = '<h4 class="mb-3 text-primary"><i class="fas fa-industry"></i> SMP</h4>';
+            const rowSMP = document.createElement('div');
+            rowSMP.className = 'routines-row';
+            const isMobile = window.innerWidth <= 600;
+            ['STE PRINCIPALE', 'STE CAB', 'STEP'].forEach(type => {
+                formulaires.filter(f => f.nom.includes('SMP') && f.nom.includes(type)).forEach(formulaire => {
+                    let card;
+                    if (isMobile) {
+                        card = document.createElement('div');
+                        card.className = 'routine-line';
+                        card.innerHTML = `
+                            <h6>${formulaire.nom}</h6>
+                            <a href="/remplir_routine/${formulaire.id}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-edit"></i> Remplir
+                            </a>
+                        `;
+                    } else {
+                        card = document.createElement('div');
+                        card.className = 'routine-card';
+                        card.innerHTML = `
+                            <h6>${formulaire.nom}</h6>
+                            <a href="/remplir_routine/${formulaire.id}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-edit"></i> Remplir
+                            </a>
+                        `;
+                    }
+                    rowSMP.appendChild(card);
+                });
+            });
+            blocSMP.appendChild(rowSMP);
+            // Bloc LPZ
+            const blocLPZ = document.getElementById('bloc-lpz');
+            blocLPZ.innerHTML = '<h4 class="mb-3 text-primary"><i class="fas fa-industry"></i> LPZ</h4>';
+            const rowLPZ = document.createElement('div');
+            rowLPZ.className = 'routines-row';
+            ['STE PRINCIPALE', 'STE CAB', 'STEP'].forEach(type => {
+                formulaires.filter(f => f.nom.includes('LPZ') && f.nom.includes(type)).forEach(formulaire => {
+                    let card;
+                    if (isMobile) {
+                        card = document.createElement('div');
+                        card.className = 'routine-line';
+                        card.innerHTML = `
+                            <h6>${formulaire.nom}</h6>
+                            <a href="/remplir_routine/${formulaire.id}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-edit"></i> Remplir
+                            </a>
+                        `;
+                    } else {
+                        card = document.createElement('div');
+                        card.className = 'routine-card';
+                        card.innerHTML = `
+                            <h6>${formulaire.nom}</h6>
+                            <a href="/remplir_routine/${formulaire.id}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-edit"></i> Remplir
+                            </a>
+                        `;
+                    }
+                    rowLPZ.appendChild(card);
+                });
+            });
+            blocLPZ.appendChild(rowLPZ);
+            // Bloc export (select)
+            const select = document.getElementById('formulaireSelect');
+            if (select) {
+                select.innerHTML = '<option value="">Sélectionner un formulaire...</option>';
+                formulaires.forEach(f => {
+                    const option = document.createElement('option');
+                    option.value = f.id;
+                    option.textContent = f.nom;
+                    select.appendChild(option);
+                });
+            }
+            // Remplir aussi le select de détail
+            remplirSelectDetailFormulaires();
+        })
+        .catch(error => {
+            document.getElementById('bloc-smp').innerHTML = '<div class="alert alert-danger">Erreur lors du chargement des formulaires</div>';
+        });
+}
+
+function remplirSelectDetailFormulaires() {
+    const select = document.getElementById('formulaireDetailSelect');
+    if (select) {
+        select.innerHTML = '<option value="">Sélectionner un formulaire...</option>';
+        const ordre = [
+            'STE PRINCIPALE SMP',
+            'STE CAB SMP',
+            'STEP SMP',
+            'STE PRINCIPALE LPZ',
+            'STE CAB LPZ',
+            'STEP LPZ'
+        ];
+        const sorted = [...formulaires].sort((a, b) => {
+            const ia = ordre.findIndex(o => a.nom === o);
+            const ib = ordre.findIndex(o => b.nom === o);
+            if (ia === -1 && ib === -1) return a.nom.localeCompare(b.nom);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+        sorted.forEach(f => {
+            const option = document.createElement('option');
+            option.value = f.id;
+            option.textContent = f.nom;
+            select.appendChild(option);
+        });
+    }
+    // Mettre la date du jour par défaut
+    const dateInput = document.getElementById('dateDetailSelect');
+    if (dateInput) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+}
+
+function afficherFormulaireRempli() {
+    const formulaireId = document.getElementById('formulaireDetailSelect').value;
+    const date = document.getElementById('dateDetailSelect').value;
+    const container = document.getElementById('detail-formulaire-rempli');
+    if (!formulaireId || !date) {
+        container.innerHTML = '<div class="alert alert-warning">Veuillez sélectionner un formulaire et une date.</div>';
+        return;
+    }
+    container.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"><span class="visually-hidden">Chargement...</span></div></div>';
+    fetch(`/api/routines/reponses/${date}`)
+        .then(r => r.json())
+        .then(data => {
+            const reponses = data.filter(r => r.formulaire_id == formulaireId);
+            if (reponses.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">Aucune réponse pour ce formulaire à cette date.</div>';
+                return;
+            }
+            // Bouton suppression journée
+            let boutonSupp = `<div class='text-end mb-3'><button class='btn btn-danger' onclick='supprimerJourneeRoutine(${formulaireId}, "${date}")'><i class="fas fa-trash"></i> Supprimer la journée</button></div>`;
+            // Grouper par lieu
+            const groupedByLieu = {};
+            reponses.forEach(r => {
+                if (!groupedByLieu[r.lieu]) groupedByLieu[r.lieu] = [];
+                groupedByLieu[r.lieu].push(r);
+            });
+            let html = boutonSupp;
+            Object.keys(groupedByLieu).forEach(lieu => {
+                // Trier par id_question croissant
+                groupedByLieu[lieu].sort((a, b) => {
+                    // Fonction pour extraire le numéro de l'ID
+                    function extractNumber(id) {
+                        // Si c'est un nombre pur, le retourner
+                        const num = parseInt(id);
+                        if (!isNaN(num)) return num;
+                        
+                        // Sinon, essayer d'extraire le premier nombre de la chaîne
+                        const match = id.toString().match(/\d+/);
+                        return match ? parseInt(match[0]) : 0;
+                    }
+                    
+                    const numA = extractNumber(a.id_question);
+                    const numB = extractNumber(b.id_question);
+                    
+                    // Si les deux sont numériques, trier numériquement
+                    if (numA !== 0 && numB !== 0) {
+                        return numA - numB;
+                    }
+                    
+                    // Sinon, trier alphabétiquement
+                    return a.id_question.toString().localeCompare(b.id_question.toString());
+                });
+                html += `<div class='mb-4'><h6 class='text-primary'><i class='fas fa-map-marker-alt'></i> ${lieu}</h6>`;
+                html += `<div class='table-responsive'><table class='table table-bordered align-middle'><thead><tr><th>Question</th><th>Réponse</th><th>Commentaire</th><th>Photo</th><th>Heure</th></tr></thead><tbody>`;
+                groupedByLieu[lieu].forEach(r => {
+                    html += `<tr>
+                        <td><span class='badge bg-secondary me-2'>${r.id_question}</span> ${r.question}</td>
+                        <td><span class='badge ${r.reponse === 'Fait' ? 'bg-success' : r.reponse === 'Non Fait' ? 'bg-danger' : 'bg-secondary'}'>${r.reponse}</td>
+                        <td>${r.commentaire ? r.commentaire : '-'}</td>
+                        <td>${r.photo_path ? `<a href='/uploads/${r.photo_path}' target='_blank' class='btn btn-sm btn-outline-info'><i class='fas fa-camera'></i></a>` : '-'}</td>
+                        <td>${r.heure_creation ? r.heure_creation.substring(0,5) : '-'}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table></div></div>';
+            });
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement des réponses.</div>';
+        });
+}
+
+function supprimerJourneeRoutine(formulaireId, date) {
+    if (!confirm('Supprimer toutes les réponses de ce formulaire pour cette journée ?')) return;
+    fetch(`/api/routines/reponses/${formulaireId}/${date}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('Formulaire supprimé pour cette journée.');
+                afficherFormulaireRempli();
+            } else {
+                alert(data.error || 'Erreur lors de la suppression.');
+            }
+        })
+        .catch(() => alert('Erreur lors de la suppression.'));
+}
+
+function exporterFormulaire() {
+    if (!formulaireSelectionne) {
+        alert('Veuillez sélectionner un formulaire.');
+        return;
+    }
+    window.open(`/api/routines/export-excel/formulaire/${formulaireSelectionne}`, '_blank');
+}
+
+// Recharge dynamiquement les routines si la taille d'écran change (mobile <-> desktop)
+window.addEventListener('resize', function() {
+    // On recharge les routines si on change de mode mobile/desktop
+    if (formulaires.length > 0) chargerFormulaires();
+});
+</script>
+{% endblock %} 

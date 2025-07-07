@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block title %}Historique - STE Relevés{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-history me-2"></i>
+            Historique des relevés
+        </h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-success" id="exportExcelBtn" onclick="exportExcel()">
+                    <i class="fas fa-file-excel me-2"></i>Export Excel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>
+                        Filtres de recherche
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label for="siteSelect" class="form-label">Site</label>
+                            <select class="form-select" id="siteSelect">
+                                <option value="">Tous les sites</option>
+                                {% for site in sites %}
+                                    <option value="{{ site.id }}">{{ site.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="dateDebut" class="form-label">Date de début</label>
+                            <input type="date" class="form-control" id="dateDebut">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="dateFin" class="form-label">Date de fin</label>
+                            <input type="date" class="form-control" id="dateFin">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="button" class="btn btn-primary" onclick="appliquerFiltres()">
+                                    <i class="fas fa-search me-2"></i>Rechercher
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="reinitialiserFiltres()">
+                                    <i class="fas fa-undo me-2"></i>Réinitialiser
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résultats -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Résultats
+                    </h6>
+                    <div>
+                        <span class="badge bg-primary" id="nombreResultats">0 résultats</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tableauHistorique">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type de relevé</th>
+                                    <th>Valeur</th>
+                                    <th>Unité</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyHistorique">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        <i class="fas fa-search fa-2x mb-2"></i>
+                                        <br>Aucune donnée à afficher. Utilisez les filtres pour rechercher des relevés.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <nav aria-label="Pagination des résultats">
+                        <ul class="pagination justify-content-center" id="pagination">
+                            <!-- Pagination sera générée dynamiquement -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de modification -->
+<div class="modal fade" id="modalModification" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>
+                    Modifier le relevé
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formModification">
+                    <input type="hidden" id="releveId" name="releveId">
+                    <div class="mb-3">
+                        <label for="modalDate" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="modalDate" name="date" required disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalValeur" class="form-label">Valeur</label>
+                        <input type="number" class="form-control" id="modalValeur" name="valeur" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modalCommentaire" class="form-label">Commentaire</label>
+                        <textarea class="form-control" id="modalCommentaire" name="commentaire" rows="3"></textarea>
+                    </div>
+                    <input type="hidden" id="modalTypeReleveId" name="type_releve_id">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="sauvegarderModification()">
+                    <i class="fas fa-save me-2"></i>Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#exportExcelBtn.btn-success {
+    background-color: #198754;
+    color: #fff;
+    border: 1px solid #198754;
+    transition: background 0.2s, color 0.2s;
+}
+#exportExcelBtn.btn-success:hover, #exportExcelBtn.btn-success:focus {
+    background-color: #fff;
+    color: #198754;
+    border: 1px solid #198754;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentSiteId = null;
+let currentPage = 1;
+const itemsPerPage = 20;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser les dates par défaut (derniers 30 jours)
+    const aujourd_hui = new Date();
+    const il_y_a_30_jours = new Date(aujourd_hui);
+    il_y_a_30_jours.setDate(il_y_a_30_jours.getDate() - 30);
+    
+    document.getElementById('dateFin').value = aujourd_hui.toISOString().split('T')[0];
+    document.getElementById('dateDebut').value = il_y_a_30_jours.toISOString().split('T')[0];
+    
+    // Charger les données initiales
+    appliquerFiltres();
+});
+
+function appliquerFiltres() {
+    currentPage = 1;
+    chargerHistorique();
+}
+
+function reinitialiserFiltres() {
+    document.getElementById('siteSelect').value = '';
+    document.getElementById('dateDebut').value = '';
+    document.getElementById('dateFin').value = '';
+    currentPage = 1;
+    chargerHistorique();
+}
+
+function chargerHistorique() {
+    const siteId = document.getElementById('siteSelect').value;
+    const dateDebut = document.getElementById('dateDebut').value;
+    const dateFin = document.getElementById('dateFin').value;
+    
+    if (!siteId) {
+        showAlert('Veuillez sélectionner un site', 'warning');
+        return;
+    }
+    
+    currentSiteId = siteId;
+    
+    // Afficher le loader
+    const tbody = document.getElementById('tbodyHistorique');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <br>Chargement des données...
+            </td>
+        </tr>
+    `;
+    
+    // Construire l'URL avec les paramètres
+    let url = `/api/historique/${siteId}?page=${currentPage}&limit=${itemsPerPage}`;
+    if (dateDebut) url += `&date_debut=${dateDebut}`;
+    if (dateFin) url += `&date_fin=${dateFin}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            afficherResultats(data);
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <br>Erreur lors du chargement des données
+                    </td>
+                </tr>
+            `;
+        });
+}
+
+function afficherResultats(data) {
+    const tbody = document.getElementById('tbodyHistorique');
+    const nombreResultats = document.getElementById('nombreResultats');
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted">
+                    <i class="fas fa-search fa-2x mb-2"></i>
+                    <br>Aucun relevé trouvé pour les critères sélectionnés.
+                </td>
+            </tr>
+        `;
+        nombreResultats.textContent = '0 résultats';
+        return;
+    }
+    // Grouper par date
+    const groupes = {};
+    data.forEach(releve => {
+        if (!groupes[releve.date]) groupes[releve.date] = [];
+        groupes[releve.date].push(releve);
+    });
+    const dates = Object.keys(groupes).sort((a, b) => b.localeCompare(a));
+    let html = '';
+    dates.forEach(date => {
+        const rows = groupes[date];
+        html += `
+        <tr class="ligne-journee" data-date="${date}">
+            <td><i class="fas fa-calendar me-1"></i> ${formatDate(date)}</td>
+            <td colspan="3"><span class="text-muted">${rows.length} relevé(s)</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleDetails(this, '${date}')"><i class="fas fa-chevron-down"></i></button>
+                <button class="btn btn-sm btn-outline-danger ms-2" onclick="supprimerJournee('${date}')"><i class="fas fa-trash"></i> Supprimer la journée</button>
+            </td>
+        </tr>
+        <tr class="details-journee d-none" data-details="${date}">
+            <td colspan="5">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>Type de relevé</th><th>Valeur</th><th>Unité</th><th>Utilisateur</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        ${rows.map(releve => `
+                        <tr data-type-id="${releve.type_releve_id}">
+                            <td>${releve.type_releve}</td>
+                            <td><strong>${parseFloat(releve.valeur).toFixed(2)}</strong></td>
+                            <td><span class="badge bg-secondary">${releve.unite}</span></td>
+                            <td>${releve.utilisateur || ''}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="modifierReleve('${releve.id}', ${releve.valeur}, '${releve.commentaire || ''}', '${releve.date}', '${releve.type_releve_id}')"><i class="fas fa-edit"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="supprimerReleve('${releve.id}')"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+    nombreResultats.textContent = `${data.length} résultat(s)`;
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function modifierReleve(id, valeur, commentaire, date, type_releve_id) {
+    console.log('DEBUG modifierReleve - Paramètres reçus:', {id, valeur, commentaire, date, type_releve_id});
+    
+    document.getElementById('releveId').value = id;
+    document.getElementById('modalValeur').value = valeur;
+    document.getElementById('modalCommentaire').value = commentaire;
+    document.getElementById('modalDate').value = date ? date.split('T')[0] : '';
+    // Désactiver le champ date pour empêcher le déplacement accidentel
+    document.getElementById('modalDate').disabled = true;
+    
+    // S'assurer que le champ caché existe et est rempli
+    let inputType = document.getElementById('modalTypeReleveId');
+    if (!inputType) {
+        inputType = document.createElement('input');
+        inputType.type = 'hidden';
+        inputType.id = 'modalTypeReleveId';
+        inputType.name = 'type_releve_id';
+        document.getElementById('formModification').appendChild(inputType);
+    }
+    inputType.value = type_releve_id;
+    
+    console.log('DEBUG modifierReleve - Champ modalTypeReleveId rempli avec:', type_releve_id);
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalModification'));
+    modal.show();
+}
+
+function sauvegarderModification() {
+    const id = document.getElementById('releveId').value;
+    const valeur = document.getElementById('modalValeur').value;
+    const commentaire = document.getElementById('modalCommentaire').value;
+    const date = document.getElementById('modalDate').value;
+    const type_releve_id = document.getElementById('modalTypeReleveId').value;
+    
+    console.log('DEBUG sauvegarderModification - Données à envoyer:', {
+        id: id,
+        valeur: valeur,
+        commentaire: commentaire,
+        date: date,
+        type_releve_id: type_releve_id
+    });
+    
+    if (!type_releve_id) {
+        alert("Impossible de retrouver le type de relevé. Merci de sélectionner une ligne valide.");
+        return;
+    }
+    if (valeur === '' || valeur === null) {
+        alert("La valeur ne peut pas être vide. Pour supprimer un relevé, utilisez le bouton de suppression dédié.");
+        return;
+    }
+    fetch('/api/releve', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            id: id,
+            valeur: valeur,
+            commentaire: commentaire,
+            date: date,
+            type_releve_id: type_releve_id
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('DEBUG sauvegarderModification - Réponse reçue:', data);
+        if (data.success) {
+            showAlert('Modification sauvegardée', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalModification'));
+            modal.hide();
+            console.log('DEBUG sauvegarderModification - Rechargement de l\'historique...');
+            chargerHistorique();
+        } else {
+            showAlert('Erreur lors de la sauvegarde', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('DEBUG sauvegarderModification - Erreur:', error);
+        showAlert('Erreur de connexion', 'danger');
+    });
+}
+
+function toggleDetails(btn, date) {
+    const details = document.querySelector(`tr.details-journee[data-details='${date}']`);
+    if (details.classList.contains('d-none')) {
+        details.classList.remove('d-none');
+        btn.querySelector('i').classList.remove('fa-chevron-down');
+        btn.querySelector('i').classList.add('fa-chevron-up');
+    } else {
+        details.classList.add('d-none');
+        btn.querySelector('i').classList.remove('fa-chevron-up');
+        btn.querySelector('i').classList.add('fa-chevron-down');
+    }
+}
+
+function supprimerJournee(date) {
+    if (!currentSiteId) return;
+    if (confirm('Supprimer tous les relevés de cette journée ?')) {
+        fetch(`/api/releves_jour/${currentSiteId}?date=${date}`, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Journée supprimée', 'success');
+                    chargerHistorique();
+                } else {
+                    showAlert(data.message || 'Erreur lors de la suppression', 'danger');
+                }
+            })
+            .catch(() => showAlert('Erreur de connexion', 'danger'));
+    }
+}
+
+function supprimerReleve(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce relevé ?')) {
+        fetch(`/api/releve/${id}`, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Relevé supprimé', 'success');
+                    chargerHistorique();
+                } else {
+                    showAlert(data.message || 'Erreur lors de la suppression', 'danger');
+                }
+            })
+            .catch(() => showAlert('Erreur de connexion', 'danger'));
+    }
+}
+
+function exportExcel() {
+    const siteId = document.getElementById('siteSelect').value;
+    const dateDebut = document.getElementById('dateDebut').value;
+    const dateFin = document.getElementById('dateFin').value;
+    
+    if (!siteId) {
+        showAlert('Veuillez sélectionner un site pour l\'export', 'warning');
+        return;
+    }
+    
+    let url = `/export_excel/${siteId}`;
+    const params = new URLSearchParams();
+    if (dateDebut) params.append('date_debut', dateDebut);
+    if (dateFin) params.append('date_fin', dateFin);
+    
+    if (params.toString()) {
+        url += '?' + params.toString();
+    }
+    
+    // Créer un lien temporaire pour télécharger le fichier
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `releves_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showAlert('Export Excel en cours...', 'info');
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-hide après 3 secondes
+    setTimeout(() => {
+        const bsAlert = new bootstrap.Alert(alertDiv);
+        bsAlert.close();
+    }, 3000);
+}
+</script>
+{% endblock %} 

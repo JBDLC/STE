@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="bandeau-info d-flex justify-content-between align-items-center" style="background:#e3f7fd; border-radius:16px; padding:24px 24px 16px 24px; margin-bottom:24px;">
+        <div>
+            <h2 class="mb-0">Relevés LPZ</h2>
+            <span id="date-lettres" class="fw-bold"></span>
+        </div>
+        <div>
+            <label for="dateReleve" class="form-label mb-0 me-2">Date du relevé :</label>
+            <input type="date" id="dateReleve" class="form-control d-inline-block" style="width:auto;">
+        </div>
+    </div>
+    
+    <!-- Alerte pour relevés existants -->
+    <div id="alerte-existant" class="alert alert-warning d-none" role="alert" style="margin-bottom:24px;">
+        <strong>Attention&nbsp;!</strong> Des relevés existent déjà pour cette date. Les valeurs affichées sont celles déjà enregistrées.
+    </div>
+    
+    <form id="formLPZ">
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <thead>
+                    <tr>
+                        <th>Équipement</th>
+                        <th>Valeur du jour</th>
+                        <th>Unité</th>
+                        <th>Valeur veille</th>
+                        <th>Différence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Exhaure 1</td><td><input type="number" class="form-control" id="exhaure1" name="Exhaure 1" data-nom="Exhaure 1" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Exhaure 1">-</span></td><td><span class="difference text-muted" data-nom="Exhaure 1">-</span></td></tr>
+                    <tr><td>Exhaure 2</td><td><input type="number" class="form-control" id="exhaure2" name="Exhaure 2" data-nom="Exhaure 2" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Exhaure 2">-</span></td><td><span class="difference text-muted" data-nom="Exhaure 2">-</span></td></tr>
+                    <tr><td>Retour dessableur</td><td><input type="number" class="form-control" id="retourDessableur" name="Retour dessableur" data-nom="Retour dessableur" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Retour dessableur">-</span></td><td><span class="difference text-muted" data-nom="Retour dessableur">-</span></td></tr>
+                    <tr><td>Surpresseur BP</td><td><input type="number" class="form-control" id="surpresseurBP" name="Surpresseur BP" data-nom="Surpresseur BP" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Surpresseur BP">-</span></td><td><span class="difference text-muted" data-nom="Surpresseur BP">-</span></td></tr>
+                    <tr><td>Surpresseur HP</td><td><input type="number" class="form-control" id="surpresseurHP" name="Surpresseur HP" data-nom="Surpresseur HP" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Surpresseur HP">-</span></td><td><span class="difference text-muted" data-nom="Surpresseur HP">-</span></td></tr>
+                    <tr><td>Rejet à l'Arc</td><td><input type="number" class="form-control" id="rejetArc" name="Rejet à l'Arc" data-nom="Rejet à l'Arc" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Rejet à l'Arc">-</span></td><td><span class="difference text-muted" data-nom="Rejet à l'Arc">-</span></td></tr>
+                    <tr><td>Entrée STE CAB</td><td><input type="number" class="form-control" id="entreeSteCab" name="Entrée STE CAB" data-nom="Entrée STE CAB" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Entrée STE CAB">-</span></td><td><span class="difference text-muted" data-nom="Entrée STE CAB">-</span></td></tr>
+                    <tr><td>Alimentation CAB</td><td><input type="number" class="form-control" id="alimCab" name="Alimentation CAB" data-nom="Alimentation CAB" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Alimentation CAB">-</span></td><td><span class="difference text-muted" data-nom="Alimentation CAB">-</span></td></tr>
+                    <tr><td>Eau de montagne</td><td><input type="number" class="form-control" id="eauMontagne" name="Eau de montagne" data-nom="Eau de montagne" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Eau de montagne">-</span></td><td><span class="difference text-muted" data-nom="Eau de montagne">-</span></td></tr>
+                    <tr><td>Eau potable<br><small class="text-muted" id="info-eauPotable">Saisissable uniquement le lundi</small></td><td><input type="number" class="form-control" id="eauPotable" name="Eau potable" data-nom="Eau potable" data-type="totalisateur"></td><td>m³</td><td><span class="valeur-veille text-muted" data-nom="Eau potable">-</span></td><td><span class="difference text-muted" data-nom="Eau potable">-</span></td></tr>
+                    <tr><td>Boue STE</td><td><input type="number" class="form-control" id="boueSte" name="Boue STE" data-nom="Boue STE" data-type="basique"></td><td>kg</td><td><span class="valeur-veille text-muted" data-nom="Boue STE">-</span></td><td><span class="difference text-muted" data-nom="Boue STE">-</span></td></tr>
+                    <tr><td>Boue STE CAB</td><td><input type="number" class="form-control" id="boueSteCab" name="Boue STE CAB" data-nom="Boue STE CAB" data-type="basique"></td><td>kg</td><td><span class="valeur-veille text-muted" data-nom="Boue STE CAB">-</span></td><td><span class="difference text-muted" data-nom="Boue STE CAB">-</span></td></tr>
+                    <tr><td>pH entrée</td><td><input type="number" class="form-control" id="phEntree" name="pH entrée" data-nom="pH entrée" data-type="basique"></td><td></td><td><span class="valeur-veille text-muted" data-nom="pH entrée">-</span></td><td><span class="difference text-muted" data-nom="pH entrée">-</span></td></tr>
+                    <tr><td>pH sortie</td><td><input type="number" class="form-control" id="phSortie" name="pH sortie" data-nom="pH sortie" data-type="basique"></td><td></td><td><span class="valeur-veille text-muted" data-nom="pH sortie">-</span></td><td><span class="difference text-muted" data-nom="pH sortie">-</span></td></tr>
+                    <tr><td>Température entrée</td><td><input type="number" class="form-control" id="tempEntree" name="Température entrée" data-nom="Température entrée" data-type="basique"></td><td>°C</td><td><span class="valeur-veille text-muted" data-nom="Température entrée">-</span></td><td><span class="difference text-muted" data-nom="Température entrée">-</span></td></tr>
+                    <tr><td>Température sortie</td><td><input type="number" class="form-control" id="tempSortie" name="Température sortie" data-nom="Température sortie" data-type="basique"></td><td>°C</td><td><span class="valeur-veille text-muted" data-nom="Température sortie">-</span></td><td><span class="difference text-muted" data-nom="Température sortie">-</span></td></tr>
+                    <tr><td>Conductivité sortie</td><td><input type="number" class="form-control" id="conductiviteSortie" name="Conductivité sortie" data-nom="Conductivité sortie" data-type="basique"></td><td>µS/cm</td><td><span class="valeur-veille text-muted" data-nom="Conductivité sortie">-</span></td><td><span class="difference text-muted" data-nom="Conductivité sortie">-</span></td></tr>
+                    <tr><td>MES entrée</td><td><input type="number" class="form-control" id="mesEntree" name="MES entrée" data-nom="MES entrée" data-type="basique"></td><td>mg/L</td><td><span class="valeur-veille text-muted" data-nom="MES entrée">-</span></td><td><span class="difference text-muted" data-nom="MES entrée">-</span></td></tr>
+                    <tr><td>MES sortie</td><td><input type="number" class="form-control" id="mesSortie" name="MES sortie" data-nom="MES sortie" data-type="basique"></td><td>mg/L</td><td><span class="valeur-veille text-muted" data-nom="MES sortie">-</span></td><td><span class="difference text-muted" data-nom="MES sortie">-</span></td></tr>
+                    <tr><td>Coagulant<br><small class="text-muted" id="info-coagulant">Saisissable uniquement le lundi</small></td><td><input type="number" class="form-control" id="coagulant" name="Coagulant" data-nom="Coagulant" data-type="basique"></td><td>L</td><td><span class="valeur-veille text-muted" data-nom="Coagulant">-</span></td><td><span class="difference text-muted" data-nom="Coagulant">-</span></td></tr>
+                    <tr><td>Floculant</td><td><input type="number" class="form-control" id="floculant" name="Floculant" data-nom="Floculant" data-type="basique"></td><td>L</td><td><span class="valeur-veille text-muted" data-nom="Floculant">-</span></td><td><span class="difference text-muted" data-nom="Floculant">-</span></td></tr>
+                    <tr><td>CO2</td><td><input type="number" class="form-control" id="co2" name="CO2" data-nom="CO2" data-type="basique"></td><td>kg</td><td><span class="valeur-veille text-muted" data-nom="CO2">-</span></td><td><span class="difference text-muted" data-nom="CO2">-</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between mt-4">
+            <div>
+                <button type="button" class="btn btn-success me-2" onclick="sauvegarderTout()">Sauvegarder tout</button>
+                <button type="reset" class="btn btn-outline-secondary" onclick="reinitialiser()">Réinitialiser</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let valeursVeille = {};
+let relevesExistants = {};
+let typeReleveMap = {};
+
+function chargerTypesReleve() {
+    fetch('/api/types_releve/2')
+        .then(r => r.json())
+        .then(data => {
+            typeReleveMap = {};
+            data.forEach(tr => {
+                typeReleveMap[tr.nom] = tr.id;
+            });
+            // Ajoute l'attribut data-type-id à chaque input
+            document.querySelectorAll('input[data-nom]').forEach(input => {
+                const nom = input.dataset.nom;
+                if (typeReleveMap[nom]) {
+                    input.dataset.typeId = typeReleveMap[nom];
+                }
+            });
+        });
+}
+
+function updateDateLettres() {
+    const input = document.getElementById('dateReleve');
+    const date = new Date(input.value);
+    if (!isNaN(date)) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('date-lettres').textContent = date.toLocaleDateString('fr-FR', options);
+        
+        // Désactiver Eau potable et Coagulant si ce n'est pas lundi
+        const isMonday = date.getDay() === 1;
+        document.getElementById('eauPotable').disabled = !isMonday;
+        document.getElementById('coagulant').disabled = !isMonday;
+        document.getElementById('info-eauPotable').style.color = isMonday ? '#198754' : '#6c757d';
+        document.getElementById('info-eauPotable').textContent = isMonday ? 'Saisissable (lundi)' : 'Saisissable uniquement le lundi';
+        document.getElementById('info-coagulant').style.color = isMonday ? '#198754' : '#6c757d';
+        document.getElementById('info-coagulant').textContent = isMonday ? 'Saisissable (lundi)' : 'Saisissable uniquement le lundi';
+        
+        // Charger les données pour cette date
+        chargerDonneesDate();
+    }
+}
+
+function chargerDonneesDate() {
+    const date = document.getElementById('dateReleve').value;
+    if (!date) return;
+    
+    // Charger les valeurs de la veille
+    fetch(`/api/veille/2?date=${date}`)
+        .then(response => response.json())
+        .then(data => {
+            valeursVeille = data.releves;
+            afficherValeursVeille();
+            calculerDifferences();
+        })
+        .catch(error => console.error('Erreur chargement veille:', error));
+    
+    // Vérifier s'il existe des relevés pour cette date
+    fetch(`/api/verifier_existence/2?date=${date}`)
+        .then(response => response.json())
+        .then(data => {
+            relevesExistants = data.releves_existants.reduce((acc, r) => {
+                acc[r.nom] = r;
+                return acc;
+            }, {});
+            
+            if (data.existe) {
+                Object.entries(relevesExistants).forEach(([nom, r]) => {
+                    const input = document.querySelector(`input[data-nom="${nom}"]`);
+                    if (input) input.value = r.valeur;
+                });
+                afficherAlerteExistant(data.releves_existants);
+            } else {
+                document.querySelectorAll('input[data-nom]').forEach(input => {
+                    input.value = '';
+                });
+                masquerAlerte();
+            }
+            calculerDifferences();
+        })
+        .catch(error => console.error('Erreur vérification existence:', error));
+}
+
+function afficherValeursVeille() {
+    document.querySelectorAll('.valeur-veille').forEach(span => {
+        const nom = span.dataset.nom;
+        const valeur = valeursVeille[nom];
+        if (valeur !== undefined) {
+            span.textContent = valeur.toFixed(2);
+            span.classList.remove('text-muted');
+        } else {
+            span.textContent = '-';
+            span.classList.add('text-muted');
+        }
+    });
+}
+
+function calculerDifferences() {
+    document.querySelectorAll('input[data-nom]').forEach(input => {
+        const nom = input.dataset.nom;
+        const valeurJour = parseFloat(input.value) || 0;
+        const valeurVeille = valeursVeille[nom] || 0;
+        const type = input.dataset.type;
+        
+        const spanDiff = document.querySelector(`.difference[data-nom="${nom}"]`);
+        if (spanDiff) {
+            if (type === 'totalisateur') {
+                // Pour les totalisateurs, calculer la différence
+                const difference = valeurJour - valeurVeille;
+                spanDiff.textContent = difference.toFixed(2);
+                spanDiff.classList.remove('text-muted');
+                if (difference < 0) {
+                    spanDiff.classList.add('text-danger');
+                    spanDiff.classList.remove('text-success');
+                } else {
+                    spanDiff.classList.add('text-success');
+                    spanDiff.classList.remove('text-danger');
+                }
+            } else {
+                // Pour les basiques, afficher la valeur du jour
+                spanDiff.textContent = valeurJour.toFixed(2);
+                spanDiff.classList.remove('text-muted', 'text-danger', 'text-success');
+            }
+        }
+    });
+}
+
+function afficherAlerteExistant(releves) {
+    const alerte = document.getElementById('alerte-existant');
+    const details = releves.map(r => `${r.nom}: ${r.valeur} (${r.utilisateur})`).join(', ');
+    alerte.innerHTML = `
+        <strong>Attention !</strong> Des relevés existent déjà pour cette date : ${details}
+    `;
+    alerte.classList.remove('d-none');
+}
+
+function masquerAlerte() {
+    document.getElementById('alerte-existant').classList.add('d-none');
+}
+
+function sauvegarderTout() {
+    const date = document.getElementById('dateReleve').value;
+    if (!date) {
+        alert('Veuillez sélectionner une date');
+        return;
+    }
+    const releves = [];
+    document.querySelectorAll('input[data-nom]').forEach(input => {
+        const valeur = input.value.trim();
+        const type_releve_id = input.dataset.typeId;
+        if (valeur !== '' && type_releve_id) {
+            releves.push({
+                type_releve_id: parseInt(type_releve_id),
+                valeur: parseFloat(valeur)
+            });
+        }
+    });
+    if (releves.length === 0) {
+        alert('Aucune valeur à sauvegarder');
+        return;
+    }
+    fetch('/api/releves_lpz', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date, releves})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Relevés sauvegardés avec succès !');
+            chargerDonneesDate();
+        } else {
+            alert('Erreur lors de la sauvegarde : ' + (data.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur sauvegarde:', error);
+        alert('Erreur lors de la sauvegarde');
+    });
+}
+
+function reinitialiser() {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les champs ?')) {
+        document.getElementById('formLPZ').reset();
+        document.querySelectorAll('.valeur-veille, .difference').forEach(span => {
+            span.textContent = '-';
+            span.classList.add('text-muted');
+            span.classList.remove('text-success', 'text-danger');
+        });
+    }
+}
+
+// Événements
+document.addEventListener('DOMContentLoaded', function() {
+    chargerTypesReleve();
+    const input = document.getElementById('dateReleve');
+    if (!input.value) {
+        const today = new Date();
+        input.value = today.toISOString().slice(0, 10);
+    }
+    updateDateLettres();
+    input.addEventListener('change', updateDateLettres);
+    
+    // Écouter les changements de valeurs pour calculer les différences
+    document.querySelectorAll('input[data-nom]').forEach(input => {
+        input.addEventListener('input', calculerDifferences);
+    });
+
+    // Sur changement de date, charger automatiquement les valeurs existantes
+    input.addEventListener('change', function() {
+        const date = this.value;
+        if (date) chargerDonneesDate();
+    });
+
+    // Au chargement initial, charger les valeurs si une date est déjà sélectionnée
+    const date = document.getElementById('dateReleve').value;
+    if (date) chargerDonneesDate();
+});
+</script>
+
+<style>
+.bandeau-info {
+    background: #e3f7fd;
+    border-radius: 16px;
+    padding: 24px 24px 16px 24px;
+    margin-bottom: 24px;
+}
+</style>
+{% endblock %} 

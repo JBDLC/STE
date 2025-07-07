@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Génération du rapport PDF...</title>
+    <style>
+        body {
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .drop-container {
+            margin-top: 40px;
+            margin-bottom: 30px;
+        }
+        .philo {
+            font-size: 1.2rem;
+            color: #20466B;
+            margin-bottom: 30px;
+            text-align: center;
+            min-height: 2.5em;
+        }
+        .wait-title {
+            font-size: 2rem;
+            color: #2B5C88;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .wait-sub {
+            color: #888;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wait-title">Génération du rapport PDF...</div>
+    <div class="wait-sub">Merci de patienter pendant la création de votre rapport</div>
+    <div class="drop-container">
+        <!-- SVG goutte animée -->
+        <svg width="120" height="180" viewBox="0 0 120 180">
+            <defs>
+                <linearGradient id="eau" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#2B5C88"/>
+                    <stop offset="100%" stop-color="#6EC6FF"/>
+                </linearGradient>
+                <clipPath id="clipDrop">
+                    <path d="M60 10 Q110 90 60 170 Q10 90 60 10 Z"/>
+                </clipPath>
+            </defs>
+            <g>
+                <rect id="eauRect" x="10" y="170" width="100" height="0" fill="url(#eau)" clip-path="url(#clipDrop)">
+                    <animate attributeName="y" from="170" to="30" dur="2s" repeatCount="indefinite"/>
+                    <animate attributeName="height" from="0" to="140" dur="2s" repeatCount="indefinite"/>
+                </rect>
+                <path d="M60 10 Q110 90 60 170 Q10 90 60 10 Z" fill="none" stroke="#2B5C88" stroke-width="4"/>
+            </g>
+        </svg>
+    </div>
+    <div class="philo" id="philo"></div>
+    <script>
+        // Phrases philosophiques
+        const phrases = [
+            "L'eau va toujours à la rivière, la patience mène toujours au résultat.",
+            "Chaque goutte compte, chaque instant aussi.",
+            "La sagesse, c'est d'attendre que la source se remplisse.",
+            "Même la plus longue attente finit par s'écouler.",
+            "Le temps file comme l'eau, mais la patience est un barrage.",
+            "Celui qui attend voit l'eau devenir rivière.",
+            "La goutte d'eau perce la pierre, non par la force, mais par la persévérance.",
+            "L'eau trouve toujours son chemin, le rapport aussi !",
+            "La nature ne se presse pas, pourtant tout s'accomplit.",
+            "L'eau enseigne la patience à qui sait attendre."
+        ];
+        document.getElementById('philo').textContent = phrases[Math.floor(Math.random() * phrases.length)];
+
+        // Récupérer les paramètres de l'URL
+        function getParams() {
+            const params = {};
+            window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str,key,value) {
+                params[key] = decodeURIComponent(value);
+            });
+            return params;
+        }
+        // Polling pour savoir si le PDF est prêt (ou rediriger directement)
+        setTimeout(function() {
+            const params = window.location.search;
+            window.location.href = '/rapport_pdf' + params;
+        }, 1800); // 1.8s d'attente pour l'effet
+    </script>
+</body>
+</html> 

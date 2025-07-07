@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Indicateurs - STE Relevés{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">
+            <i class="fas fa-chart-line me-2"></i>
+            Indicateurs
+        </h1>
+        <div>
+            <button class="btn btn-danger" id="btnPdfReport" data-bs-toggle="modal" data-bs-target="#modalPdfReport">
+                <i class="fas fa-file-pdf me-2"></i>Rapport PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Rapport PDF -->
+    <div class="modal fade" id="modalPdfReport" tabindex="-1" aria-labelledby="modalPdfReportLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalPdfReportLabel"><i class="fas fa-file-pdf me-2"></i>Générer un rapport PDF</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          </div>
+          <div class="modal-body">
+            <form id="formPdfReport">
+              <div class="mb-3">
+                <label for="pdfDateDebut" class="form-label">Date de début</label>
+                <input type="date" class="form-control" id="pdfDateDebut" name="date_debut" required>
+              </div>
+              <div class="mb-3">
+                <label for="pdfDateFin" class="form-label">Date de fin</label>
+                <input type="date" class="form-control" id="pdfDateFin" name="date_fin" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Site(s)</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" value="SMP" id="siteSmp" name="sites">
+                  <label class="form-check-label" for="siteSmp">SMP</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" value="LPZ" id="siteLpz" name="sites">
+                  <label class="form-check-label" for="siteLpz">LPZ</label>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button type="button" class="btn btn-danger" id="btnGeneratePdf">Générer le PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>
+                        Filtres
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-end">
+                        <div class="col-md-3 mb-3">
+                            <label for="periodeSelect" class="form-label">Période</label>
+                            <select class="form-select" id="periodeSelect" onchange="chargerGraphique()">
+                                <option value="7">Semaine</option>
+                                <option value="30" selected>Mois</option>
+                                <option value="90">3 mois</option>
+                                <option value="365">Année</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="siteSelect" class="form-label">Site</label>
+                            <select class="form-select" id="siteSelect" onchange="changerSite()">
+                                {% for site in sites %}
+                                    <option value="{{ site.id }}">{{ site.nom }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="donneeSelect" class="form-label">Donnée à afficher</label>
+                            <select class="form-select" id="donneeSelect" onchange="chargerGraphique()">
+                                <option value="">Sélectionner une donnée...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button type="button" class="btn btn-primary w-100" onclick="chargerGraphique()">
+                                <i class="fas fa-chart-bar me-2"></i>Actualiser
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        <span id="graphiqueTitre">Graphique</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="graphiqueLoader" class="text-center text-muted py-5" style="display:none;">
+                        <i class="fas fa-spinner fa-spin fa-3x mb-3"></i>
+                        <br>Chargement du graphique…
+                    </div>
+                    <div id="graphiqueContainer" style="height: 500px;">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-chart-line fa-3x mb-3"></i>
+                            <br>Sélectionnez des filtres pour afficher le graphique
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentSiteId = null;
+let currentPeriode = 30;
+let currentDonnee = null;
+let typesReleveSite = [];
+
+function changerSite() {
+    currentSiteId = parseInt(document.getElementById('siteSelect').value);
+    
+    // Charger les types de relevé pour ce site
+    fetch(`/api/types_releve/${currentSiteId}`)
+        .then(response => response.json())
+        .then(data => {
+            typesReleveSite = data;
+            remplirDonneeSelect();
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des types de relevé:', error);
+        });
+}
+
+function remplirDonneeSelect() {
+    const select = document.getElementById('donneeSelect');
+    select.innerHTML = '<option value="">Sélectionner une donnée...</option>';
+    
+    typesReleveSite.forEach(tr => {
+        const opt = document.createElement('option');
+        opt.value = tr.id;
+        opt.textContent = tr.nom;
+        select.appendChild(opt);
+    });
+    
+    currentDonnee = null;
+    document.getElementById('graphiqueContainer').innerHTML = `
+        <div class="text-center text-muted py-5">
+            <i class="fas fa-chart-line fa-3x mb-3"></i>
+            <br>Sélectionnez une donnée pour afficher le graphique
+        </div>
+    `;
+}
+
+function chargerGraphique() {
+    currentPeriode = parseInt(document.getElementById('periodeSelect').value);
+    currentDonnee = parseInt(document.getElementById('donneeSelect').value);
+    
+    if (!currentDonnee) {
+        document.getElementById('graphiqueContainer').innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-chart-line fa-3x mb-3"></i>
+                <br>Sélectionnez une donnée pour afficher le graphique
+            </div>
+        `;
+        return;
+    }
+    
+    // Afficher le loader
+    document.getElementById('graphiqueLoader').style.display = '';
+    document.getElementById('graphiqueContainer').innerHTML = '';
+    
+    // Charger les données
+    fetch(`/api/indicateurs_donnee/${currentDonnee}?jours=${currentPeriode}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('graphiqueLoader').style.display = 'none';
+            afficherGraphique(data);
+        })
+        .catch(error => {
+            document.getElementById('graphiqueLoader').style.display = 'none';
+            document.getElementById('graphiqueContainer').innerHTML = `
+                <div class="text-center text-danger py-5">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <br>Erreur lors du chargement du graphique
+                </div>
+            `;
+            console.error('Erreur:', error);
+        });
+}
+
+function afficherGraphique(data) {
+    if (!data || data.length === 0) {
+        document.getElementById('graphiqueContainer').innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-chart-line fa-3x mb-3"></i>
+                <br>Aucune donnée disponible pour cette période
+            </div>
+        `;
+        return;
+    }
+    
+    // Mettre à jour le titre
+    const siteSelect = document.getElementById('siteSelect');
+    const siteNom = siteSelect.options[siteSelect.selectedIndex].text;
+    const donneeSelect = document.getElementById('donneeSelect');
+    const donneeNom = donneeSelect.options[donneeSelect.selectedIndex].text;
+    
+    document.getElementById('graphiqueTitre').textContent = `${donneeNom} - ${siteNom}`;
+    
+    // Créer les traces pour Plotly
+    const traces = data.map(serie => {
+        return {
+            x: serie.valeurs.map(v => v.date),
+            y: serie.valeurs.map(v => v.valeur),
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: serie.nom,
+            line: { width: 3 },
+            marker: { size: 6 }
+        };
+    });
+    
+    const layout = {
+        title: {
+            text: `${donneeNom} - ${siteNom}`,
+            font: { size: 18, color: '#333' }
+        },
+        xaxis: { 
+            title: 'Date',
+            gridcolor: '#f0f0f0',
+            type: 'date'
+        },
+        yaxis: { 
+            title: 'Valeur',
+            gridcolor: '#f0f0f0'
+        },
+        plot_bgcolor: 'white',
+        paper_bgcolor: 'white',
+        margin: { l: 60, r: 40, t: 60, b: 60 },
+        hovermode: 'closest',
+        height: 450
+    };
+    
+    const config = {
+        responsive: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+    };
+    
+    Plotly.newPlot('graphiqueContainer', traces, layout, config);
+}
+
+// Initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser avec le premier site
+    currentSiteId = parseInt(document.getElementById('siteSelect').value);
+    changerSite();
+});
+
+document.getElementById('btnGeneratePdf').addEventListener('click', function() {
+    const dateDebut = document.getElementById('pdfDateDebut').value;
+    const dateFin = document.getElementById('pdfDateFin').value;
+    const sites = [];
+    if (document.getElementById('siteSmp').checked) sites.push('SMP');
+    if (document.getElementById('siteLpz').checked) sites.push('LPZ');
+    if (!dateDebut || !dateFin || sites.length === 0) {
+        alert('Veuillez renseigner la période et au moins un site.');
+        return;
+    }
+    // Construire l'URL pour la génération du PDF
+    const params = new URLSearchParams({
+        date_debut: dateDebut,
+        date_fin: dateFin,
+        sites: sites.join(',')
+    });
+    window.open(`/attente_rapport_pdf?${params.toString()}`, '_blank');
+    // Fermer le modal
+    var modal = bootstrap.Modal.getInstance(document.getElementById('modalPdfReport'));
+    modal.hide();
+});
+</script>
+<style>
+#btnPdfReport.btn-danger {
+    background-color: #dc3545;
+    color: #fff;
+    border: 1px solid #dc3545;
+    transition: background 0.2s, color 0.2s;
+}
+#btnPdfReport.btn-danger:hover, #btnPdfReport.btn-danger:focus {
+    background-color: #fff;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+}
+</style>
+{% endblock %} 

@@ -1,0 +1,549 @@
+{% extends "base.html" %}
+{% block title %}Gestion des utilisateurs{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4">Gestion des utilisateurs</h1>
+    
+    <!-- Section Monitoring Base de données (Admin seulement) -->
+    {% if current_user.role == 'admin' %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-database me-2"></i>Monitoring Base de données</h5>
+                </div>
+                <div class="card-body">
+                    <div id="db-status">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            <span>Chargement du statut...</span>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button id="cleanup-btn" class="btn btn-warning btn-sm" onclick="cleanupDatabase()">
+                            <i class="fas fa-broom me-1"></i>Nettoyage automatique
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-envelope me-2"></i>Configuration Email</h5>
+                </div>
+                <div class="card-body">
+                    <form id="email-config-form">
+                        <div class="mb-3">
+                            <label class="form-label">Adresse email de réception</label>
+                            <input type="email" class="form-control" name="email_address" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Serveur SMTP</label>
+                            <input type="text" class="form-control" name="smtp_server" value="smtp.gmail.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Port SMTP</label>
+                            <input type="number" class="form-control" name="smtp_port" value="587">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nom d'utilisateur SMTP</label>
+                            <input type="text" class="form-control" name="smtp_username">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mot de passe SMTP</label>
+                            <input type="password" class="form-control" name="smtp_password">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-save me-1"></i>Sauvegarder
+                            </button>
+                            <button type="button" class="btn btn-info btn-sm" onclick="testEmail()">
+                                <i class="fas fa-paper-plane me-1"></i>Test
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Section Création utilisateur -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-user-plus me-2"></i>Créer un utilisateur</h5>
+        </div>
+        <div class="card-body">
+            <form id="create-user-form">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">Nom d'utilisateur</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Mot de passe</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary d-block">Créer</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Section Liste utilisateurs -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-users me-2"></i>Utilisateurs</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            {% for page in page_names %}
+                            <th class="text-center">{{ page.replace('_', ' ').title() }}</th>
+                            {% endfor %}
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr data-user-id="{{ user.id }}">
+                            <td>{{ user.username }}</td>
+                            {% for page in page_names %}
+                                {% set access = (user.page_accesses | selectattr('page_name', 'equalto', page) | list | first) %}
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input page-access-checkbox" data-page="{{ page }}"
+                                        {% if user.role == 'admin' or (access and access.can_access) %}checked{% endif %}
+                                        {% if user.role == 'admin' %}disabled{% endif %}>
+                                </td>
+                            {% endfor %}
+                            <td>
+                                {% if user.role != 'admin' %}
+                                <span class="edit-user-btn" title="Modifier" style="cursor:pointer; margin-right: 4px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#1976d2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L5 12.828a2 2 0 010-2.828L9 13z"/>
+                                    </svg>
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de modification utilisateur -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editUserModalLabel">Modifier l'utilisateur</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-user-form">
+          <input type="hidden" name="user_id">
+          <div class="mb-3">
+            <label class="form-label">Nom d'utilisateur</label>
+            <input type="text" class="form-control" name="username" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nouveau mot de passe (laisser vide pour ne pas changer)</label>
+            <input type="password" class="form-control" name="password">
+          </div>
+        </form>
+        <div class="d-flex justify-content-end">
+          <button id="delete-user-modal-btn" class="btn btn-danger" style="display:none;">Supprimer l'utilisateur</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" form="edit-user-form" class="btn btn-primary">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+// Fonction de monitoring de la base de données
+function loadDatabaseStatus() {
+    fetch('/api/database/status')
+        .then(r => r.json())
+        .then(data => {
+            const statusDiv = document.getElementById('db-status');
+            let statusClass = 'success';
+            let icon = 'check-circle';
+            
+            if (data.status === 'warning') {
+                statusClass = 'warning';
+                icon = 'exclamation-triangle';
+            } else if (data.status === 'critical') {
+                statusClass = 'danger';
+                icon = 'exclamation-circle';
+            }
+            
+            statusDiv.innerHTML = `
+                <div class="col-md-6">
+                    <div class="alert alert-${statusClass} mb-0">
+                        <i class="fas fa-${icon} me-2"></i>
+                        <strong>${data.message}</strong>
+                        <br>
+                        <small>Taille estimée: ${data.estimated_size_mb} MB (${data.usage_percent}% de 1GB)</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 mb-0">${data.stats.releves}</div>
+                                <small class="text-muted">Relevés</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 mb-0">${data.stats.photos}</div>
+                                <small class="text-muted">Photos</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-2">
+                                <div class="h5 mb-0">${data.stats.users}</div>
+                                <small class="text-muted">Utilisateurs</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            document.getElementById('db-status').innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Erreur lors du chargement du statut
+                    </div>
+                </div>
+            `;
+        });
+}
+
+function cleanupDatabase() {
+    if (confirm('Lancer le nettoyage automatique ? Cela supprimera les anciennes données.')) {
+        fetch('/api/database/cleanup', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.message) {
+                    alert('Nettoyage effectué avec succès !');
+                    loadDatabaseStatus();
+                } else {
+                    alert('Erreur lors du nettoyage: ' + (data.error || 'Erreur inconnue'));
+                }
+            })
+            .catch(error => {
+                alert('Erreur lors du nettoyage');
+            });
+    }
+}
+
+// Charger le statut au démarrage (admin seulement)
+{% if current_user.role == 'admin' %}
+document.addEventListener('DOMContentLoaded', function() {
+    loadDatabaseStatus();
+    loadEmailConfig();
+});
+{% endif %}
+
+// Fonctions pour la configuration email
+function loadEmailConfig() {
+    fetch('/api/email/config')
+        .then(r => r.json())
+        .then(data => {
+            const form = document.getElementById('email-config-form');
+            form.email_address.value = data.email_address || '';
+            form.smtp_server.value = data.smtp_server || 'smtp.gmail.com';
+            form.smtp_port.value = data.smtp_port || 587;
+            form.smtp_username.value = data.smtp_username || '';
+            form.smtp_password.value = data.smtp_password || '';
+        })
+        .catch(error => {
+            console.error('Erreur chargement config email:', error);
+        });
+}
+
+function testEmail() {
+    const form = document.getElementById('email-config-form');
+    const data = {
+        email_address: form.email_address.value,
+        smtp_server: form.smtp_server.value,
+        smtp_port: parseInt(form.smtp_port.value),
+        smtp_username: form.smtp_username.value,
+        smtp_password: form.smtp_password.value
+    };
+    
+    // Sauvegarder d'abord
+    fetch('/api/email/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(() => {
+        // Puis tester
+        return fetch('/api/email/test', { method: 'POST' });
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.message) {
+            alert('Email de test envoyé avec succès !');
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        alert('Erreur lors du test email');
+    });
+}
+
+document.getElementById('email-config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+        email_address: form.email_address.value,
+        smtp_server: form.smtp_server.value,
+        smtp_port: parseInt(form.smtp_port.value),
+        smtp_username: form.smtp_username.value,
+        smtp_password: form.smtp_password.value
+    };
+    
+    fetch('/api/email/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.message) {
+            alert('Configuration email sauvegardée !');
+        } else {
+            alert('Erreur: ' + (result.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        alert('Erreur lors de la sauvegarde');
+    });
+});
+
+function reloadUsers() {
+    fetch('/api/utilisateurs')
+        .then(r => r.json())
+        .then(users => {
+            const tbody = document.querySelector('table tbody');
+            tbody.innerHTML = '';
+            users.forEach(user => {
+                let tr = document.createElement('tr');
+                tr.setAttribute('data-user-id', user.id);
+                tr.innerHTML = `
+                    <td>${user.username}</td>
+                    {% for page in page_names %}
+                        {% set access = (user.page_accesses | selectattr('page_name', 'equalto', page) | list | first) %}
+                        <td class="text-center">
+                            <input type="checkbox" class="form-check-input page-access-checkbox" data-page="{{ page }}"
+                                {% if user.role == 'admin' or (access and access.can_access) %}checked{% endif %}
+                                {% if user.role == 'admin' %}disabled{% endif %}>
+                        </td>
+                    {% endfor %}
+                    <td>
+                        ${user.role !== 'admin' ? '<span class="edit-user-btn" title="Modifier" style="cursor:pointer; margin-right: 4px; vertical-align:middle; display:inline-block;"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#1976d2"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L5 12.828a2 2 0 010-2.828L9 13z"/></svg></span>' : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+}
+
+document.getElementById('create-user-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = {
+        username: form.username.value,
+        password: form.password.value
+    };
+    fetch('/api/utilisateurs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            reloadUsers();
+            form.reset();
+            alert('Utilisateur créé !');
+        } else {
+            alert(res.error || 'Erreur lors de la création');
+        }
+    });
+});
+
+document.querySelector('table').addEventListener('click', function(e) {
+    if (e.target.closest('.delete-user-btn')) {
+        const tr = e.target.closest('tr');
+        const userId = tr.getAttribute('data-user-id');
+        if (confirm('Supprimer cet utilisateur ?')) {
+            fetch(`/api/utilisateurs/${userId}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        reloadUsers();
+                        alert('Utilisateur supprimé');
+                    } else {
+                        alert(res.error || 'Erreur lors de la suppression');
+                    }
+                });
+        }
+    }
+});
+
+document.querySelector('table').addEventListener('change', function(e) {
+    if (e.target.classList.contains('page-access-checkbox')) {
+        const tr = e.target.closest('tr');
+        const userId = tr.getAttribute('data-user-id');
+        const checkboxes = tr.querySelectorAll('.page-access-checkbox');
+        const data = {};
+        checkboxes.forEach(cb => {
+            data[cb.getAttribute('data-page')] = cb.checked;
+        });
+        fetch(`/api/utilisateurs/${userId}/droits`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) {
+                alert(res.error || 'Erreur lors de la modification des droits');
+            }
+        });
+    }
+});
+
+// MODIFICATION/SUPPRESSION UTILISATEUR AVEC SVG
+let editUserModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+document.querySelector('table').addEventListener('click', function(e) {
+    // Edit
+    if (e.target.closest('.edit-user-btn')) {
+        const tr = e.target.closest('tr');
+        const userId = tr.getAttribute('data-user-id');
+        const username = tr.children[0].textContent;
+        const role = tr.children[1].textContent;
+        const form = document.getElementById('edit-user-form');
+        form.user_id.value = userId;
+        form.username.value = username;
+        const deleteBtn = document.getElementById('delete-user-modal-btn');
+        if (username.trim() === 'admin') {
+            deleteBtn.style.display = 'none';
+            deleteBtn.removeAttribute('data-user-id');
+        } else {
+            deleteBtn.style.display = 'inline-block';
+            deleteBtn.setAttribute('data-user-id', userId);
+        }
+        form.password.value = '';
+        editUserModal.show();
+    }
+});
+document.getElementById('edit-user-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const userId = form.user_id.value;
+    const data = {
+        username: form.username.value,
+        password: form.password.value
+    };
+    fetch(`/api/utilisateurs/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            reloadUsers();
+            setTimeout(bindCheckboxEvents, 100);
+            editUserModal.hide();
+            alert('Utilisateur modifié !');
+        } else {
+            alert(res.error || 'Erreur lors de la modification');
+        }
+    });
+});
+
+// Suppression depuis le modal
+document.getElementById('delete-user-modal-btn').addEventListener('click', function(e) {
+    e.preventDefault();
+    const userId = e.target.getAttribute('data-user-id');
+    if (confirm('Supprimer cet utilisateur ?')) {
+        fetch(`/api/utilisateurs/${userId}`, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    reloadUsers();
+                    setTimeout(bindCheckboxEvents, 100);
+                    editUserModal.hide();
+                    alert('Utilisateur supprimé');
+                } else {
+                    alert(res.error || 'Erreur lors de la suppression');
+                }
+            });
+    }
+});
+
+// Gestion dynamique des cases à cocher (droits)
+function bindCheckboxEvents() {
+    document.querySelectorAll('.page-access-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const tr = this.closest('tr');
+            const userId = tr.getAttribute('data-user-id');
+            const checkboxes = tr.querySelectorAll('.page-access-checkbox');
+            const data = {};
+            checkboxes.forEach(checkbox => {
+                data[checkbox.getAttribute('data-page')] = checkbox.checked;
+            });
+            fetch(`/api/utilisateurs/${userId}/droits`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) {
+                    alert(res.error || 'Erreur lors de la modification des droits');
+                }
+            });
+        });
+    });
+}
+
+// Initialiser les événements
+bindCheckboxEvents();
+</script>
+{% endblock %}
+{% block extra_css %}
+<style>
+@media (max-width: 768px) {
+    .card-body h5 { font-size: 1.1rem; }
+    .table-responsive { margin-bottom: 1rem; }
+    .btn { font-size: 1rem; padding: 0.5rem 1rem; }
+    .edit-user-btn, .delete-user-btn { width: 100%; margin-bottom: 0.25rem; }
+}
+</style>
+{% endblock %} 

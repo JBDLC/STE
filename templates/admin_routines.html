@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Administration des Routines{% endblock %}
+
+{% block extra_css %}
+<!-- ExcelJS pour la génération de fichiers Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-cog"></i>
+                Administration des Routines
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/routines">Routines</a></li>
+                    <li class="breadcrumb-item active">Administration</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-upload"></i>
+                        Importer des Questions Excel
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="importForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="formulaireSelect" class="form-label">Sélectionner un formulaire :</label>
+                            <select class="form-select" id="formulaireSelect" name="formulaireId" required>
+                                <option value="">Choisir un formulaire...</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="excelFile" class="form-label">Fichier Excel :</label>
+                            <input type="file" class="form-control" id="excelFile" name="file" accept=".xlsx,.xls" required>
+                            <div class="form-text">
+                                Le fichier doit contenir les colonnes : <strong>id</strong>, <strong>lieu</strong>, <strong>question</strong>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i>
+                                Importer
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="telechargerTemplate()">
+                                <i class="fas fa-download"></i>
+                                Télécharger le Template
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div id="importResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        Instructions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6>Format du fichier Excel :</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>id</th>
+                                    <th>lieu</th>
+                                    <th>question</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Zone A</td>
+                                    <td>Vérifier l'état des équipements</td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>Zone A</td>
+                                    <td>Contrôler les niveaux</td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td>Zone B</td>
+                                    <td>Inspecter la sécurité</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <h6><i class="fas fa-lightbulb"></i> Conseils :</h6>
+                        <ul class="mb-0">
+                            <li>L'<strong>id</strong> doit être unique pour chaque question</li>
+                            <li>Le <strong>lieu</strong> permet de grouper les questions par zone</li>
+                            <li>La <strong>question</strong> décrit le contrôle à effectuer</li>
+                            <li>Les questions sont importées dans l'ordre du fichier Excel</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i>
+                        Formulaires Disponibles
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="formulaires-list">
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Chargement...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    chargerFormulaires();
+    setupImportForm();
+});
+
+function chargerFormulaires() {
+    fetch('/api/routines/formulaires')
+        .then(response => response.json())
+        .then(formulaires => {
+            // Remplir le select
+            const select = document.getElementById('formulaireSelect');
+            select.innerHTML = '<option value="">Choisir un formulaire...</option>';
+            formulaires.forEach(formulaire => {
+                const option = document.createElement('option');
+                option.value = formulaire.id;
+                option.textContent = formulaire.nom;
+                select.appendChild(option);
+            });
+            
+            // Remplir la liste
+            const container = document.getElementById('formulaires-list');
+            container.innerHTML = '';
+            
+            formulaires.forEach(formulaire => {
+                const card = document.createElement('div');
+                card.className = 'card mb-2';
+                card.innerHTML = `
+                    <div class="card-body p-3">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="card-title mb-1">${formulaire.nom}</h6>
+                                <small class="text-muted">Créé le ${new Date(formulaire.created_at).toLocaleDateString()}</small>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-info btn-sm" onclick="voirQuestions(${formulaire.id})">
+                                    <i class="fas fa-eye"></i>
+                                    Voir Questions
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des formulaires:', error);
+            document.getElementById('formulaires-list').innerHTML = 
+                '<div class="alert alert-danger">Erreur lors du chargement des formulaires</div>';
+        });
+}
+
+function setupImportForm() {
+    document.getElementById('importForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const resultDiv = document.getElementById('importResult');
+        
+        resultDiv.innerHTML = '<div class="alert alert-info">Import en cours...</div>';
+        
+        fetch('/api/routines/import-excel', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Erreur : ${data.error}</div>`;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <h6>Import réussi !</h6>
+                        <p>Questions mises à jour : ${data.updated}</p>
+                        <p>Nouvelles questions : ${data.inserted}</p>
+                    </div>
+                `;
+                this.reset();
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de l\'import:', error);
+            resultDiv.innerHTML = '<div class="alert alert-danger">Erreur lors de l\'import</div>';
+        });
+    });
+}
+
+function telechargerTemplate() {
+    // Créer un template Excel avec les colonnes id, lieu, question
+    const template = [
+        { id: 1, lieu: 'Zone A', question: 'Vérifier l\'état des équipements' },
+        { id: 2, lieu: 'Zone A', question: 'Contrôler les niveaux' },
+        { id: 3, lieu: 'Zone B', question: 'Inspecter la sécurité' },
+        { id: 4, lieu: 'Zone B', question: 'Vérifier les paramètres' },
+        { id: 5, lieu: 'Zone C', question: 'Contrôler la qualité' }
+    ];
+    
+    // Créer un fichier Excel avec openpyxl
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Questions');
+    
+    // Ajouter les en-têtes
+    worksheet.addRow(['id', 'lieu', 'question']);
+    
+    // Ajouter les données
+    template.forEach(row => {
+        worksheet.addRow([row.id, row.lieu, row.question]);
+    });
+    
+    // Styliser les en-têtes
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+    };
+    
+    // Ajuster la largeur des colonnes
+    worksheet.getColumn(1).width = 10; // id
+    worksheet.getColumn(2).width = 20; // lieu
+    worksheet.getColumn(3).width = 50; // question
+    
+    // Générer le fichier
+    workbook.xlsx.writeBuffer().then(buffer => {
+        const blob = new Blob([buffer], { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'template_routines.xlsx';
+        link.click();
+    });
+}
+
+function voirQuestions(formulaireId) {
+    // Rediriger vers une page de détail ou ouvrir un modal
+    window.open(`/detail_routine/${formulaireId}`, '_blank');
+}
+</script>
+{% endblock %} 

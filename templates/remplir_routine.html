@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block title %}Remplir Routine{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="h3 mb-0">
+                    <i class="fas fa-edit"></i>
+                    <span id="formulaire-nom">Chargement...</span>
+                </h1>
+                <div>
+                    <a href="/routines" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Retour
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar"></i>
+                            <span id="date-actuelle"></span>
+                        </h5>
+                        <div>
+                            <span class="badge bg-light text-dark" id="progress-badge">0/0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="questions-container">
+                        <div class="text-center p-4">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Chargement...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center my-4">
+                        <button class="btn btn-lg btn-success" id="btn-enregistrer" onclick="enregistrerToutesReponses()">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                        <div id="enregistrer-message" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour les commentaires et photos -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de la réponse</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="detailForm">
+                    <input type="hidden" id="modal-question-id">
+                    <input type="hidden" id="modal-formulaire-id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Question :</label>
+                        <p id="modal-question-text" class="form-control-plaintext"></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modal-commentaire" class="form-label">Commentaire :</label>
+                        <textarea class="form-control" id="modal-commentaire" rows="3" placeholder="Ajouter un commentaire..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="sauvegarderReponse()">
+                    <i class="fas fa-save"></i>
+                    Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.question-card {
+    border-left: 4px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.question-card.fait {
+    border-left-color: #28a745;
+    background-color: #f8fff9;
+}
+
+.question-card.non-fait {
+    border-left-color: #dc3545;
+    background-color: #fff8f8;
+}
+
+.question-card.non-applicable {
+    border-left-color: #6c757d;
+    background-color: #f8f9fa;
+}
+
+.reponse-btn {
+    min-width: 80px;
+}
+
+.lieu-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .reponse-btn {
+        min-width: 60px;
+        font-size: 0.875rem;
+    }
+    
+    .question-text {
+        font-size: 0.9rem;
+    }
+}
+</style>
+
+/* --- CSS responsive ajouté --- */
+@media (max-width: 768px) {
+    .question-card .row {
+        flex-direction: column !important;
+    }
+    .question-card .btn-group {
+        width: 100% !important;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: stretch;
+    }
+    .question-card .btn-group .btn {
+        flex: 1 1 100%;
+        margin-bottom: 4px;
+    }
+    .question-card .text-end {
+        text-align: left !important;
+    }
+}
+#questions-container {
+    overflow-x: auto;
+}
+
+<script>
+let formulaireId = {{ formulaire_id }};
+let questions = [];
+let reponses = {};
+
+// Fonction pour extraire le numéro de l'ID
+function extractNumber(id) {
+    // Si c'est un nombre pur, le retourner
+    const num = parseInt(id);
+    if (!isNaN(num)) return num;
+    
+    // Sinon, essayer d'extraire le premier nombre de la chaîne
+    const match = id.toString().match(/\d+/);
+    return match ? parseInt(match[0]) : 0;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Afficher la date actuelle
+    const aujourdhui = new Date();
+    const dateStr = aujourdhui.toLocaleDateString('fr-FR');
+    document.getElementById('date-actuelle').textContent = dateStr;
+    
+    chargerQuestions();
+    chargerReponses();
+});
+
+function chargerQuestions() {
+    fetch(`/api/routines/formulaires/${formulaireId}/questions`)
+        .then(response => response.json())
+        .then(data => {
+            questions = data;
+            afficherQuestions();
+            mettreAJourProgress();
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des questions:', error);
+            document.getElementById('questions-container').innerHTML = 
+                '<div class="alert alert-danger m-3">Erreur lors du chargement des questions</div>';
+        });
+}
+
+function chargerReponses() {
+    const aujourdhui = new Date().toISOString().split('T')[0];
+    fetch(`/api/routines/reponses/${aujourdhui}`)
+        .then(response => response.json())
+        .then(data => {
+            reponses = {};
+            data.forEach(reponse => {
+                if (reponse.formulaire_id == formulaireId) {
+                    reponses[reponse.question_id] = reponse;
+                }
+            });
+            afficherQuestions();
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des réponses:', error);
+        });
+}
+
+function afficherQuestions() {
+    if (questions.length === 0) return;
+    
+    // Récupérer le nom du formulaire
+    fetch('/api/routines/formulaires')
+        .then(response => response.json())
+        .then(formulaires => {
+            const formulaire = formulaires.find(f => f.id == formulaireId);
+            if (formulaire) {
+                document.getElementById('formulaire-nom').textContent = formulaire.nom;
+            }
+        });
+    
+    // Grouper par lieu
+    const groupedByLieu = {};
+    questions.forEach(question => {
+        if (!groupedByLieu[question.lieu]) {
+            groupedByLieu[question.lieu] = [];
+        }
+        groupedByLieu[question.lieu].push(question);
+    });
+    
+    // Trier les questions par ID dans chaque lieu
+    Object.keys(groupedByLieu).forEach(lieu => {
+        groupedByLieu[lieu].sort((a, b) => {
+            const numA = extractNumber(a.id_question);
+            const numB = extractNumber(b.id_question);
+            
+            // Si les deux sont numériques, trier numériquement
+            if (numA !== 0 && numB !== 0) {
+                return numA - numB;
+            }
+            
+            // Sinon, trier alphabétiquement
+            return a.id_question.toString().localeCompare(b.id_question.toString());
+        });
+    });
+    
+    const container = document.getElementById('questions-container');
+    container.innerHTML = '';
+    
+    // Récupérer la liste des lieux triés selon le plus petit numéro de question de chaque bloc
+    const lieuxTries = Object.keys(groupedByLieu).sort((a, b) => {
+        const minA = Math.min(...groupedByLieu[a].map(q => extractNumber(q.id_question)));
+        const minB = Math.min(...groupedByLieu[b].map(q => extractNumber(q.id_question)));
+        return minA - minB;
+    });
+    
+    lieuxTries.forEach(lieu => {
+        const lieuDiv = document.createElement('div');
+        lieuDiv.className = 'lieu-section';
+        
+        const lieuHeader = document.createElement('div');
+        lieuHeader.className = 'lieu-header p-3';
+        lieuHeader.innerHTML = `<h6 class="mb-0"><i class="fas fa-map-marker-alt"></i> ${lieu}</h6>`;
+        lieuDiv.appendChild(lieuHeader);
+        
+        groupedByLieu[lieu].forEach(question => {
+            const reponse = reponses[question.id];
+            const card = document.createElement('div');
+            card.className = `question-card p-3 border-bottom ${reponse ? reponse.reponse.toLowerCase().replace(' ', '-') : ''}`;
+            
+            card.innerHTML = `
+                <div class="row align-items-center">
+                    <div class="col-12 col-md-8 mb-2 mb-md-0">
+                        <h6 class="question-text mb-2">
+                            <span class="badge bg-secondary me-2">${question.id_question}</span>
+                            ${question.question}
+                        </h6>
+                        ${reponse && reponse.commentaire ? 
+                            `<small class="text-muted"><i class="fas fa-comment"></i> ${reponse.commentaire}</small>` : ''}
+                    </div>
+                    <div class="col-12 col-md-4 text-end d-flex flex-wrap justify-content-md-end gap-2 gap-md-1">
+                        <div class="btn-group w-100 w-md-auto mb-2 mb-md-0" role="group">
+                            <button type="button" class="btn btn-outline-success reponse-btn ${reponse && reponse.reponse === 'Fait' ? 'active' : ''}" 
+                                    onclick="repondre(${question.id}, 'Fait')">
+                                <i class="fas fa-check"></i>
+                                <span class="d-none d-md-inline">Fait</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger reponse-btn ${reponse && reponse.reponse === 'Non Fait' ? 'active' : ''}" 
+                                    onclick="repondre(${question.id}, 'Non Fait')">
+                                <i class="fas fa-times"></i>
+                                <span class="d-none d-md-inline">Non</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary reponse-btn ${reponse && reponse.reponse === 'Non Applicable' ? 'active' : ''}" 
+                                    onclick="repondre(${question.id}, 'Non Applicable')">
+                                <i class="fas fa-minus"></i>
+                                <span class="d-none d-md-inline">N/A</span>
+                            </button>
+                        </div>
+                        ${reponse ? 
+                            `<button type="button" class="btn btn-sm btn-outline-info ms-2" onclick="modifierReponse(${question.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>` : ''}
+                    </div>
+                </div>
+            `;
+            
+            lieuDiv.appendChild(card);
+        });
+        
+        container.appendChild(lieuDiv);
+    });
+    
+    mettreAJourProgress();
+}
+
+function repondre(questionId, reponse) {
+    if (!reponses[questionId]) reponses[questionId] = { question_id: questionId };
+    reponses[questionId].reponse = reponse;
+    afficherQuestions();
+}
+
+function modifierReponse(questionId) {
+    const reponse = reponses[questionId];
+    const question = questions.find(q => q.id == questionId);
+    
+    if (!reponse || !question) return;
+    
+    document.getElementById('modal-question-id').value = questionId;
+    document.getElementById('modal-formulaire-id').value = formulaireId;
+    document.getElementById('modal-question-text').textContent = question.question;
+    document.getElementById('modal-commentaire').value = reponse.commentaire || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+    modal.show();
+}
+
+function sauvegarderReponse() {
+    const questionId = document.getElementById('modal-question-id').value;
+    const formulaireId = document.getElementById('modal-formulaire-id').value;
+    const commentaire = document.getElementById('modal-commentaire').value;
+    
+    const formData = new FormData();
+    formData.append('reponse', reponses[questionId].reponse);
+    formData.append('commentaire', commentaire);
+    
+    // Correction : POST si pas d'ID, PUT sinon
+    const repId = reponses[questionId] && reponses[questionId].id;
+    let url, method;
+    if (repId && repId !== 'undefined') {
+        url = `/api/routines/reponses/${repId}`;
+        method = 'PUT';
+    } else {
+        url = '/api/routines/reponses';
+        method = 'POST';
+        formData.append('formulaireId', formulaireId);
+        formData.append('questionId', questionId);
+    }
+    fetch(url, {
+        method: method,
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('Erreur : ' + data.error);
+        } else {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
+            modal.hide();
+            chargerReponses();
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la modification:', error);
+        alert('Erreur lors de la modification');
+    });
+}
+
+function mettreAJourProgress() {
+    const total = questions.length;
+    const repondu = Object.keys(reponses).length;
+    document.getElementById('progress-badge').textContent = `${repondu}/${total}`;
+}
+
+function enregistrerToutesReponses() {
+    const messageDiv = document.getElementById('enregistrer-message');
+    messageDiv.innerHTML = '';
+    let total = 0;
+    let ok = 0;
+    let erreurs = [];
+    // On parcourt toutes les questions
+    questions.forEach(q => {
+        const rep = reponses[q.id];
+        if (rep && rep.reponse) {
+            total++;
+            // On envoie chaque réponse (POST ou PUT selon si déjà existante)
+            const formData = new FormData();
+            formData.append('formulaireId', formulaireId);
+            formData.append('questionId', q.id);
+            formData.append('reponse', rep.reponse);
+            formData.append('commentaire', rep.commentaire || '');
+            // Pas de gestion photo ici (déjà géré par le modal)
+            const url = rep.id ? `/api/routines/reponses/${rep.id}` : '/api/routines/reponses';
+            const method = rep.id ? 'PUT' : 'POST';
+            fetch(url, { method, body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.error) ok++;
+                    else erreurs.push(q.id);
+                    if (ok + erreurs.length === total) {
+                        if (erreurs.length === 0) {
+                            messageDiv.innerHTML = '<div class="alert alert-success">Toutes les réponses ont été enregistrées !</div>';
+                            chargerReponses();
+                        } else {
+                            messageDiv.innerHTML = `<div class="alert alert-danger">Erreur sur ${erreurs.length} réponses.</div>`;
+                        }
+                    }
+                })
+                .catch(() => {
+                    erreurs.push(q.id);
+                    if (ok + erreurs.length === total) {
+                        messageDiv.innerHTML = `<div class=\"alert alert-danger\">Erreur sur ${erreurs.length} réponses.</div>`;
+                    }
+                });
+        }
+    });
+    if (total === 0) {
+        messageDiv.innerHTML = '<div class="alert alert-warning">Aucune réponse à enregistrer.</div>';
+    }
+}
+</script>
+{% endblock %} 

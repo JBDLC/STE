@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="bandeau-info d-flex justify-content-between align-items-center" style="background:#e3f7fd; border-radius:16px; padding:24px 24px 16px 24px; margin-bottom:24px;">
+        <div>
+            <h2 class="mb-0">Relevés SMP</h2>
+            <span id="date-lettres" class="fw-bold"></span>
+        </div>
+        <div>
+            <label for="dateReleve" class="form-label mb-0 me-2">Date du relevé :</label>
+            <input type="date" id="dateReleve" class="form-control d-inline-block" style="width:auto;">
+        </div>
+    </div>
+    
+    <!-- Alerte pour relevés existants -->
+    <div id="alerte-existant" class="alert alert-warning d-none" role="alert" style="margin-bottom:24px;">
+        <strong>Attention&nbsp;!</strong> Des relevés existent déjà pour cette date. Les valeurs affichées sont celles déjà enregistrées.
+    </div>
+    
+    <form id="formSMP">
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle mt-3">
+                <thead class="table-light">
+                    <tr>
+                        <th>Équipement</th>
+                        <th>Valeur du jour</th>
+                        <th>Unité</th>
+                        <th>Valeur veille</th>
+                        <th>Différence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set debitmetres = [
+                        ('Exhaure 1', 'totalisateur', 'm³', ''),
+                        ('Exhaure 2', 'totalisateur', 'm³', ''),
+                        ('Exhaure 3', 'totalisateur', 'm³', ''),
+                        ('Exhaure 4', 'totalisateur', 'm³', ''),
+                        ('Retour dessableur', 'totalisateur', 'm³', ''),
+                        ('Retour Orage', 'totalisateur', 'm³', ''),
+                        ("Rejet à l'Arc", 'totalisateur', 'm³', ''),
+                        ('Surpresseur 4 pompes', 'totalisateur', 'm³', ''),
+                        ('Surpresseur 7 pompes', 'totalisateur', 'm³', ''),
+                        ('Entrée STE CAB', 'totalisateur', 'm³', ''),
+                        ('Alimentation CAB', 'totalisateur', 'm³', ''),
+                        ('Eau potable', 'totalisateur', 'm³', 'hebdomadaire'),
+                        ('Forage', 'totalisateur', 'm³', ''),
+                        ('Boue STE', 'basique', 'kg', ''),
+                        ('Boue STE CAB', 'basique', 'kg', ''),
+                        ('pH entrée', 'basique', '', ''),
+                        ('pH sortie', 'basique', '', ''),
+                        ('Température entrée', 'basique', '°C', ''),
+                        ('Température sortie', 'basique', '°C', ''),
+                        ('Conductivité sortie', 'basique', 'µS/cm', ''),
+                        ('MES entrée', 'basique', 'mg/L', ''),
+                        ('MES sortie', 'basique', 'mg/L', ''),
+                        ('Coagulant', 'basique', 'L', 'hebdomadaire'),
+                        ('Floculant', 'basique', 'L', ''),
+                        ('CO2', 'basique', 'kg', '')
+                    ] %}
+                    {% for nom, type_mesure, unite, frequence in debitmetres %}
+                    <tr>
+                        <td>
+                            {{ nom }}
+                            {% if frequence == 'hebdomadaire' %}
+                                <br><small class="text-muted" id="info-{{ nom.replace(' ', '') }}">Saisissable uniquement le lundi</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" 
+                                   class="form-control valeur-jour" 
+                                   name="{{ nom }}" 
+                                   data-nom="{{ nom }}" 
+                                   data-type="{{ type_mesure }}"
+                                   {% if frequence == 'hebdomadaire' %}id="{{ nom.replace(' ', '') }}"{% endif %}>
+                        </td>
+                        <td>{{ unite }}</td>
+                        <td><span class="valeur-veille text-muted" data-nom="{{ nom }}">-</span></td>
+                        <td><span class="difference text-muted" data-nom="{{ nom }}">-</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-between mt-4">
+            <div>
+                <button type="button" class="btn btn-success me-2" onclick="sauvegarderTout()">Sauvegarder tout</button>
+                <button type="reset" class="btn btn-outline-secondary" onclick="reinitialiser()">Réinitialiser</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let valeursVeille = {};
+let relevesExistants = {};
+let typeReleveMap = {};
+
+function chargerTypesReleve() {
+    fetch('/api/types_releve/1')
+        .then(r => r.json())
+        .then(data => {
+            typeReleveMap = {};
+            data.forEach(tr => {
+                typeReleveMap[tr.nom] = tr.id;
+            });
+            // Ajoute l'attribut data-type-id à chaque input
+            document.querySelectorAll('input[data-nom]').forEach(input => {
+                const nom = input.dataset.nom;
+                if (typeReleveMap[nom]) {
+                    input.dataset.typeId = typeReleveMap[nom];
+                }
+            });
+        });
+}
+
+function updateDateLettres() {
+    const input = document.getElementById('dateReleve');
+    const date = new Date(input.value);
+    if (!isNaN(date)) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('date-lettres').textContent = date.toLocaleDateString('fr-FR', options);
+        
+        // Désactiver Eau potable et Coagulant si ce n'est pas lundi
+        const isMonday = date.getDay() === 1;
+        const eauPotableInput = document.getElementById('Eaupotable');
+        const coagulantInput = document.getElementById('Coagulant');
+        const infoEauPotable = document.getElementById('info-Eaupotable');
+        const infoCoagulant = document.getElementById('info-Coagulant');
+        
+        if (eauPotableInput) {
+            eauPotableInput.disabled = !isMonday;
+        }
+        if (coagulantInput) {
+            coagulantInput.disabled = !isMonday;
+        }
+        if (infoEauPotable) {
+            infoEauPotable.style.color = isMonday ? '#198754' : '#6c757d';
+            infoEauPotable.textContent = isMonday ? 'Saisissable (lundi)' : 'Saisissable uniquement le lundi';
+        }
+        if (infoCoagulant) {
+            infoCoagulant.style.color = isMonday ? '#198754' : '#6c757d';
+            infoCoagulant.textContent = isMonday ? 'Saisissable (lundi)' : 'Saisissable uniquement le lundi';
+        }
+        
+        // Charger les données pour cette date
+        chargerDonneesDate();
+    }
+}
+
+function chargerDonneesDate() {
+    const date = document.getElementById('dateReleve').value;
+    if (!date) return;
+    
+    // Charger les valeurs de la veille
+    fetch(`/api/veille/1?date=${date}`)
+        .then(response => response.json())
+        .then(data => {
+            valeursVeille = data.releves;
+            afficherValeursVeille();
+        })
+        .catch(error => console.error('Erreur chargement veille:', error));
+    
+    // Vérifier s'il existe des relevés pour cette date
+    fetch(`/api/verifier_existence/1?date=${date}`)
+        .then(response => response.json())
+        .then(data => {
+            relevesExistants = data.releves_existants.reduce((acc, r) => {
+                acc[r.nom] = r;
+                return acc;
+            }, {});
+            
+            if (data.existe) {
+                // Pré-remplir les champs avec les valeurs existantes
+                Object.entries(relevesExistants).forEach(([nom, r]) => {
+                    const input = document.querySelector(`input[data-nom="${nom}"]`);
+                    if (input) input.value = r.valeur;
+                });
+                afficherAlerteExistant(data.releves_existants);
+            } else {
+                // Vider tous les champs valeur du jour
+                document.querySelectorAll('.valeur-jour').forEach(input => {
+                    input.value = '';
+                });
+                masquerAlerte();
+            }
+            calculerDifferences();
+        })
+        .catch(error => console.error('Erreur vérification existence:', error));
+}
+
+function afficherValeursVeille() {
+    document.querySelectorAll('.valeur-veille').forEach(span => {
+        const nom = span.dataset.nom;
+        const valeur = valeursVeille[nom];
+        if (valeur !== undefined) {
+            span.textContent = valeur.toFixed(2);
+            span.classList.remove('text-muted');
+        } else {
+            span.textContent = '-';
+            span.classList.add('text-muted');
+        }
+    });
+}
+
+function calculerDifferences() {
+    document.querySelectorAll('.valeur-jour').forEach(input => {
+        const nom = input.dataset.nom;
+        const valeurJour = parseFloat(input.value) || 0;
+        const valeurVeille = valeursVeille[nom] || 0;
+        const type = input.dataset.type;
+        
+        const spanDiff = document.querySelector(`.difference[data-nom="${nom}"]`);
+        if (spanDiff) {
+            if (type === 'totalisateur') {
+                // Pour les totalisateurs, calculer la différence
+                const difference = valeurJour - valeurVeille;
+                spanDiff.textContent = difference.toFixed(2);
+                spanDiff.classList.remove('text-muted');
+                if (difference < 0) {
+                    spanDiff.classList.add('text-danger');
+                    spanDiff.classList.remove('text-success');
+                } else {
+                    spanDiff.classList.add('text-success');
+                    spanDiff.classList.remove('text-danger');
+                }
+            } else {
+                // Pour les basiques, afficher la valeur du jour
+                spanDiff.textContent = valeurJour.toFixed(2);
+                spanDiff.classList.remove('text-muted', 'text-danger', 'text-success');
+            }
+        }
+    });
+}
+
+function afficherAlerteExistant(releves) {
+    const alerte = document.getElementById('alerte-existant');
+    const details = releves.map(r => `${r.nom}: ${r.valeur} (${r.utilisateur})`).join(', ');
+    alerte.innerHTML = `
+        <strong>Attention !</strong> Des relevés existent déjà pour cette date : ${details}
+    `;
+    alerte.classList.remove('d-none');
+}
+
+function masquerAlerte() {
+    document.getElementById('alerte-existant').classList.add('d-none');
+}
+
+function chargerReleves() {
+    const date = document.getElementById('dateReleve').value;
+    if (!date) return;
+    
+    fetch(`/api/releves_smp?date=${date}`)
+        .then(response => response.json())
+        .then(data => {
+            // Pré-remplir les champs avec les valeurs existantes
+            Object.entries(data.releves).forEach(([nom, valeur]) => {
+                const input = document.querySelector(`input[data-nom="${nom}"]`);
+                if (input) {
+                    input.value = valeur;
+                }
+            });
+            
+            // Recalculer les différences
+            calculerDifferences();
+            masquerAlerte();
+            
+            // Afficher un message de succès
+            alert('Valeurs existantes chargées avec succès !');
+        })
+        .catch(error => {
+            console.error('Erreur chargement relevés:', error);
+            alert('Erreur lors du chargement des valeurs existantes');
+        });
+}
+
+function sauvegarderTout() {
+    const date = document.getElementById('dateReleve').value;
+    if (!date) {
+        alert('Veuillez sélectionner une date');
+        return;
+    }
+    const releves = [];
+    document.querySelectorAll('input[data-nom]').forEach(input => {
+        const valeur = input.value.trim();
+        const type_releve_id = input.dataset.typeId;
+        if (valeur !== '' && type_releve_id) {
+            releves.push({
+                type_releve_id: parseInt(type_releve_id),
+                valeur: parseFloat(valeur)
+            });
+        }
+    });
+    if (releves.length === 0) {
+        alert('Aucune valeur à sauvegarder');
+        return;
+    }
+    fetch('/api/releves_smp', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({date, releves})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Relevés sauvegardés avec succès !');
+            chargerDonneesDate();
+        } else {
+            alert('Erreur lors de la sauvegarde : ' + (data.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur sauvegarde:', error);
+        alert('Erreur lors de la sauvegarde');
+    });
+}
+
+function reinitialiser() {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les champs ?')) {
+        document.getElementById('formSMP').reset();
+        document.querySelectorAll('.valeur-veille, .difference').forEach(span => {
+            span.textContent = '-';
+            span.classList.add('text-muted');
+            span.classList.remove('text-success', 'text-danger');
+        });
+    }
+}
+
+// Événements
+document.addEventListener('DOMContentLoaded', function() {
+    chargerTypesReleve();
+    const input = document.getElementById('dateReleve');
+    if (!input.value) {
+        const today = new Date();
+        input.value = today.toISOString().slice(0, 10);
+    }
+    updateDateLettres();
+    input.addEventListener('change', updateDateLettres);
+    
+    // Écouter les changements de valeurs pour calculer les différences
+    document.querySelectorAll('.valeur-jour').forEach(input => {
+        input.addEventListener('input', calculerDifferences);
+    });
+});
+
+// Fonction pour charger les valeurs existantes automatiquement
+function chargerValeursExistantes(date) {
+    fetch(`/api/releves_smp?date=${date}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.releves && Object.keys(data.releves).length > 0) {
+                document.getElementById('alerte-existant').classList.remove('d-none');
+                // Remplir les champs avec les valeurs existantes
+                Object.entries(data.releves).forEach(([nom, valeur]) => {
+                    const input = document.querySelector(`input[data-nom="${nom}"]`);
+                    if (input) input.value = valeur;
+                });
+            } else {
+                document.getElementById('alerte-existant').classList.add('d-none');
+            }
+        });
+}
+
+// Sur changement de date, charger automatiquement les valeurs existantes
+document.getElementById('dateReleve').addEventListener('change', function() {
+    const date = this.value;
+    if (date) chargerValeursExistantes(date);
+});
+
+// Au chargement initial, charger les valeurs si une date est déjà sélectionnée
+window.addEventListener('DOMContentLoaded', function() {
+    const date = document.getElementById('dateReleve').value;
+    if (date) chargerValeursExistantes(date);
+});
+</script>
+
+<style>
+.bandeau-info {
+    background: #e3f7fd;
+    border-radius: 16px;
+    padding: 24px 24px 16px 24px;
+    margin-bottom: 24px;
+}
+</style>
+{% endblock %} 

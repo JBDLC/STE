@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Détail des Routines{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-chart-pie"></i>
+                Statistiques des Routines
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/routines">Routines</a></li>
+                    <li class="breadcrumb-item active">Statistiques</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar"></i>
+                        Sélectionner une Date
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="dateSelect" class="form-label">Date :</label>
+                        <input type="date" class="form-control" id="dateSelect" value="">
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="chargerStats()">
+                        <i class="fas fa-chart-bar"></i>
+                        Charger les Statistiques
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        Informations
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="h4 text-success" id="taux-reussite">0%</div>
+                            <small class="text-muted">Taux de réussite</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="h4 text-warning" id="taux-completion">0%</div>
+                            <small class="text-muted">Taux de completion</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="h4 text-info" id="total-formulaires">0</div>
+                            <small class="text-muted">Formulaires</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table"></i>
+                        Statistiques par Question
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="stats-container">
+                        <div class="text-center p-4">
+                            <p class="text-muted">Sélectionnez une date pour voir les statistiques</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-card {
+    border-left: 4px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.stats-card.excellent {
+    border-left-color: #28a745;
+}
+
+.stats-card.bon {
+    border-left-color: #17a2b8;
+}
+
+.stats-card.moyen {
+    border-left-color: #ffc107;
+}
+
+.stats-card.faible {
+    border-left-color: #dc3545;
+}
+
+.progress {
+    height: 8px;
+}
+
+.formulaire-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: bold;
+}
+</style>
+
+<script>
+let stats = [];
+let dateSelectionnee = new Date().toISOString().split('T')[0];
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('dateSelect').value = dateSelectionnee;
+    chargerStats();
+});
+
+function chargerStats() {
+    dateSelectionnee = document.getElementById('dateSelect').value;
+    const container = document.getElementById('stats-container');
+    
+    container.innerHTML = `
+        <div class="text-center p-4">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+        </div>
+    `;
+    
+    fetch(`/api/routines/stats/${dateSelectionnee}`)
+        .then(response => response.json())
+        .then(data => {
+            stats = data;
+            afficherStats();
+            mettreAJourResume();
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des statistiques:', error);
+            container.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement des statistiques</div>';
+        });
+}
+
+function afficherStats() {
+    if (stats.length === 0) {
+        document.getElementById('stats-container').innerHTML = 
+            '<div class="text-center p-4"><p class="text-muted">Aucune donnée pour cette date</p></div>';
+        return;
+    }
+    
+    // Grouper par formulaire
+    const groupedByForm = {};
+    stats.forEach(stat => {
+        if (!groupedByForm[stat.formulaire_nom]) {
+            groupedByForm[stat.formulaire_nom] = [];
+        }
+        groupedByForm[stat.formulaire_nom].push(stat);
+    });
+    
+    const container = document.getElementById('stats-container');
+    container.innerHTML = '';
+    
+    Object.keys(groupedByForm).forEach(formName => {
+        const formDiv = document.createElement('div');
+        formDiv.className = 'mb-4';
+        
+        const formHeader = document.createElement('div');
+        formHeader.className = 'formulaire-header p-3';
+        formHeader.innerHTML = `<h6 class="mb-0"><i class="fas fa-clipboard-list"></i> ${formName}</h6>`;
+        formDiv.appendChild(formHeader);
+        
+        // Grouper par lieu
+        const groupedByLieu = {};
+        groupedByForm[formName].forEach(stat => {
+            if (!groupedByLieu[stat.lieu]) {
+                groupedByLieu[stat.lieu] = [];
+            }
+            groupedByLieu[stat.lieu].push(stat);
+        });
+        
+        Object.keys(groupedByLieu).forEach(lieu => {
+            const lieuDiv = document.createElement('div');
+            lieuDiv.className = 'card mb-3';
+            
+            const lieuHeader = document.createElement('div');
+            lieuHeader.className = 'card-header bg-light';
+            lieuHeader.innerHTML = `<strong><i class="fas fa-map-marker-alt"></i> ${lieu}</strong>`;
+            lieuDiv.appendChild(lieuHeader);
+            
+            const lieuBody = document.createElement('div');
+            lieuBody.className = 'card-body p-0';
+            
+            const table = document.createElement('table');
+            table.className = 'table table-sm mb-0';
+            table.innerHTML = `
+                <thead class="table-light">
+                    <tr>
+                        <th>Question</th>
+                        <th>Fait</th>
+                        <th>Non Fait</th>
+                        <th>N/A</th>
+                        <th>Total</th>
+                        <th>Taux</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            
+            const tbody = table.querySelector('tbody');
+            groupedByLieu[lieu].forEach(stat => {
+                const total = stat.total || 0;
+                const fait = stat.fait || 0;
+                const nonFait = stat.non_fait || 0;
+                const nonApplicable = stat.non_applicable || 0;
+                
+                const taux = total > 0 ? Math.round((fait / total) * 100) : 0;
+                const tauxClass = taux >= 80 ? 'excellent' : taux >= 60 ? 'bon' : taux >= 40 ? 'moyen' : 'faible';
+                
+                const row = document.createElement('tr');
+                row.className = `stats-card ${tauxClass}`;
+                
+                row.innerHTML = `
+                    <td>
+                        <span class="badge bg-secondary me-2">${stat.id_question}</span>
+                        ${stat.question}
+                    </td>
+                    <td>
+                        <span class="badge bg-success">${fait}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-danger">${nonFait}</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">${nonApplicable}</span>
+                    </td>
+                    <td>
+                        <strong>${total}</strong>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="progress flex-grow-1 me-2" style="width: 60px;">
+                                <div class="progress-bar ${taux >= 80 ? 'bg-success' : taux >= 60 ? 'bg-info' : taux >= 40 ? 'bg-warning' : 'bg-danger'}" 
+                                     style="width: ${taux}%"></div>
+                            </div>
+                            <small>${taux}%</small>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            lieuBody.appendChild(table);
+            lieuDiv.appendChild(lieuBody);
+            formDiv.appendChild(lieuDiv);
+        });
+        
+        container.appendChild(formDiv);
+    });
+}
+
+function mettreAJourResume() {
+    if (stats.length === 0) {
+        document.getElementById('taux-reussite').textContent = '0%';
+        document.getElementById('taux-completion').textContent = '0%';
+        document.getElementById('total-formulaires').textContent = '0';
+        return;
+    }
+    
+    const totalQuestions = stats.reduce((sum, stat) => sum + (stat.total || 0), 0);
+    const totalFait = stats.reduce((sum, stat) => sum + (stat.fait || 0), 0);
+    const totalRepondu = stats.reduce((sum, stat) => sum + (stat.fait || 0) + (stat.non_fait || 0) + (stat.non_applicable || 0), 0);
+    
+    const tauxReussite = totalQuestions > 0 ? Math.round((totalFait / totalQuestions) * 100) : 0;
+    const tauxCompletion = totalQuestions > 0 ? Math.round((totalRepondu / totalQuestions) * 100) : 0;
+    
+    // Compter les formulaires uniques
+    const formulaires = [...new Set(stats.map(stat => stat.formulaire_nom))];
+    
+    document.getElementById('taux-reussite').textContent = tauxReussite + '%';
+    document.getElementById('taux-completion').textContent = tauxCompletion + '%';
+    document.getElementById('total-formulaires').textContent = formulaires.length;
+}
+</script>
+{% endblock %} 

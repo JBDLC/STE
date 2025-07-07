@@ -1,8 +1,26 @@
 services:
   - type: web
-    name: formulaire-excel
+    name: ste-releve
     env: python
     plan: free
-    buildCommand: ""
-    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
-    envVars: []
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.16
+      - key: RENDER
+        value: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ste-releve-db
+          property: connectionString
+    disk:
+      name: ste-releve-data
+      mountPath: /opt/render/project/src
+      sizeGB: 1
+
+databases:
+  - name: ste-releve-db
+    databaseName: ste_releve
+    user: ste_releve_user
+    plan: free 
