@@ -30,54 +30,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% set debitmetres = [
-                        ('Exhaure 1', 'totalisateur', 'm³', ''),
-                        ('Exhaure 2', 'totalisateur', 'm³', ''),
-                        ('Exhaure 3', 'totalisateur', 'm³', ''),
-                        ('Exhaure 4', 'totalisateur', 'm³', ''),
-                        ('Retour dessableur', 'totalisateur', 'm³', ''),
-                        ('Retour Orage', 'totalisateur', 'm³', ''),
-                        ("Rejet à l'Arc", 'totalisateur', 'm³', ''),
-                        ('Surpresseur 4 pompes', 'totalisateur', 'm³', ''),
-                        ('Surpresseur 7 pompes', 'totalisateur', 'm³', ''),
-                        ('Entrée STE CAB', 'totalisateur', 'm³', ''),
-                        ('Alimentation CAB', 'totalisateur', 'm³', ''),
-                        ('Eau potable', 'totalisateur', 'm³', 'hebdomadaire'),
-                        ('Forage', 'totalisateur', 'm³', ''),
-                        ('Boue STE', 'basique', 'kg', ''),
-                        ('Boue STE CAB', 'basique', 'kg', ''),
-                        ('pH entrée', 'basique', '', ''),
-                        ('pH sortie', 'basique', '', ''),
-                        ('Température entrée', 'basique', '°C', ''),
-                        ('Température sortie', 'basique', '°C', ''),
-                        ('Conductivité sortie', 'basique', 'µS/cm', ''),
-                        ('MES entrée', 'basique', 'mg/L', ''),
-                        ('MES sortie', 'basique', 'mg/L', ''),
-                        ('Coagulant', 'basique', 'L', 'hebdomadaire'),
-                        ('Floculant', 'basique', 'L', ''),
-                        ('CO2', 'basique', 'kg', '')
-                    ] %}
-                    {% for nom, type_mesure, unite, frequence in debitmetres %}
-                    <tr>
-                        <td>
-                            {{ nom }}
-                            {% if frequence == 'hebdomadaire' %}
-                                <br><small class="text-muted" id="info-{{ nom.replace(' ', '') }}">Saisissable uniquement le lundi</small>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <input type="number" step="0.01" 
-                                   class="form-control valeur-jour" 
-                                   name="{{ nom }}" 
-                                   data-nom="{{ nom }}" 
-                                   data-type="{{ type_mesure }}"
-                                   {% if frequence == 'hebdomadaire' %}id="{{ nom.replace(' ', '') }}"{% endif %}>
-                        </td>
-                        <td>{{ unite }}</td>
-                        <td><span class="valeur-veille text-muted" data-nom="{{ nom }}">-</span></td>
-                        <td><span class="difference text-muted" data-nom="{{ nom }}">-</span></td>
-                    </tr>
-                    {% endfor %}
+                    <tbody id="releves-tbody">
+                        <!-- Les données seront chargées dynamiquement via JavaScript -->
+                    </tbody>
                 </tbody>
             </table>
         </div>
@@ -105,14 +60,44 @@ function chargerTypesReleve() {
             data.forEach(tr => {
                 typeReleveMap[tr.nom] = tr.id;
             });
-            // Ajoute l'attribut data-type-id à chaque input
-            document.querySelectorAll('input[data-nom]').forEach(input => {
-                const nom = input.dataset.nom;
-                if (typeReleveMap[nom]) {
-                    input.dataset.typeId = typeReleveMap[nom];
-                }
-            });
+            
+            // Générer le tableau avec les bonnes unités
+            genererTableauReleves(data);
         });
+}
+
+function genererTableauReleves(typesReleve) {
+    const tbody = document.getElementById('releves-tbody');
+    tbody.innerHTML = '';
+    
+    typesReleve.forEach(tr => {
+        const row = document.createElement('tr');
+        
+        // Déterminer si c'est hebdomadaire
+        const isHebdomadaire = tr.frequence === 'hebdomadaire';
+        const hebdomadaireClass = isHebdomadaire ? 'hebdomadaire' : '';
+        
+        row.innerHTML = `
+            <td>
+                ${tr.nom}
+                ${isHebdomadaire ? `<br><small class="text-muted" id="info-${tr.nom.replace(/ /g, '')}">Saisissable uniquement le lundi</small>` : ''}
+            </td>
+            <td>
+                <input type="number" step="0.01" 
+                       class="form-control valeur-jour ${hebdomadaireClass}" 
+                       name="${tr.nom}" 
+                       data-nom="${tr.nom}" 
+                       data-type="${tr.type_mesure}"
+                       data-type-id="${tr.id}"
+                       ${isHebdomadaire ? `id="${tr.nom.replace(/ /g, '')}"` : ''}>
+            </td>
+            <td>${tr.unite}</td>
+            <td><span class="valeur-veille text-muted" data-nom="${tr.nom}">-</span></td>
+            <td><span class="difference text-muted" data-nom="${tr.nom}">-</span></td>
+        `;
+        
+        tbody.appendChild(row);
+    });
 }
 
 function updateDateLettres() {

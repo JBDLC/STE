@@ -240,15 +240,18 @@ function afficherGraphique(data) {
         };
     });
     
+    // Détecter si c'est un graphique avec des semaines (Eau potable ou Coagulant)
+    const isWeeklyChart = donneeNom === 'Eau potable' || donneeNom === 'Coagulant';
+    
     const layout = {
         title: {
             text: `${donneeNom} - ${siteNom}`,
             font: { size: 18, color: '#333' }
         },
         xaxis: { 
-            title: 'Date',
+            title: isWeeklyChart ? 'Semaine' : 'Date',
             gridcolor: '#f0f0f0',
-            type: 'date'
+            type: isWeeklyChart ? 'category' : 'date'
         },
         yaxis: { 
             title: 'Valeur',

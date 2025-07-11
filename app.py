@@ -452,6 +452,51 @@ def get_indicateurs(site_id):
                     'unite': type_releve.unite,
                     'valeurs': valeurs
                 })
+        elif type_releve.nom == 'Eau potable':
+            # Traitement spécial pour l'eau potable (hebdomadaire avec calcul de différence)
+            releves = Releve.query.filter_by(type_releve_id=type_releve.id).filter(
+                Releve.date >= date_debut
+            ).order_by(Releve.date).all()
+            
+            if len(releves) > 1:
+                valeurs = []
+                for i in range(1, len(releves)):
+                    difference = releves[i].valeur - releves[i-1].valeur
+                    # Calculer le numéro de semaine
+                    semaine = releves[i].date.isocalendar()
+                    semaine_label = f"S{semaine[1]}-{semaine[0]}"
+                    valeurs.append({
+                        'date': semaine_label,
+                        'valeur': difference
+                    })
+                
+                result.append({
+                    'nom': type_releve.nom,
+                    'unite': type_releve.unite,
+                    'valeurs': valeurs
+                })
+        elif type_releve.nom == 'Coagulant':
+            # Traitement spécial pour le coagulant (hebdomadaire sans calcul)
+            releves = Releve.query.filter_by(type_releve_id=type_releve.id).filter(
+                Releve.date >= date_debut
+            ).order_by(Releve.date).all()
+            
+            if releves:
+                valeurs = []
+                for releve in releves:
+                    # Calculer le numéro de semaine
+                    semaine = releve.date.isocalendar()
+                    semaine_label = f"S{semaine[1]}-{semaine[0]}"
+                    valeurs.append({
+                        'date': semaine_label,
+                        'valeur': releve.valeur
+                    })
+                
+                result.append({
+                    'nom': type_releve.nom,
+                    'unite': type_releve.unite,
+                    'valeurs': valeurs
+                })
         else:
             # Relevés basiques
             releves = Releve.query.filter_by(type_releve_id=type_releve.id).filter(
@@ -1083,6 +1128,44 @@ def api_indicateurs_donnee(type_releve_id):
                 'unite': type_releve.unite,
                 'valeurs': valeurs
             }])
+        elif type_releve.nom == 'Eau potable':
+            # Traitement spécial pour l'eau potable (hebdomadaire avec calcul de différence)
+            releves = Releve.query.filter_by(type_releve_id=type_releve_id).filter(Releve.date >= date_debut).order_by(Releve.date).all()
+            valeurs = []
+            if len(releves) > 1:
+                for i in range(1, len(releves)):
+                    difference = releves[i].valeur - releves[i-1].valeur
+                    # Calculer le numéro de semaine
+                    semaine = releves[i].date.isocalendar()
+                    semaine_label = f"S{semaine[1]}-{semaine[0]}"
+                    valeurs.append({
+                        'date': semaine_label,
+                        'valeur': difference
+                    })
+            print(f"[API indicateurs_donnee] Eau potable - valeurs={valeurs}")
+            return jsonify([{
+                'nom': type_releve.nom,
+                'unite': type_releve.unite,
+                'valeurs': valeurs
+            }])
+        elif type_releve.nom == 'Coagulant':
+            # Traitement spécial pour le coagulant (hebdomadaire sans calcul)
+            releves = Releve.query.filter_by(type_releve_id=type_releve_id).filter(Releve.date >= date_debut).order_by(Releve.date).all()
+            valeurs = []
+            for releve in releves:
+                # Calculer le numéro de semaine
+                semaine = releve.date.isocalendar()
+                semaine_label = f"S{semaine[1]}-{semaine[0]}"
+                valeurs.append({
+                    'date': semaine_label,
+                    'valeur': releve.valeur
+                })
+            print(f"[API indicateurs_donnee] Coagulant - valeurs={valeurs}")
+            return jsonify([{
+                'nom': type_releve.nom,
+                'unite': type_releve.unite,
+                'valeurs': valeurs
+            }])
         else:
             releves = Releve.query.filter_by(type_releve_id=type_releve_id).filter(Releve.date >= date_debut).order_by(Releve.date).all()
             valeurs = [
@@ -1129,13 +1212,24 @@ def rapport_pdf():
         ).order_by(Releve.date).all()
         if not releves:
             continue
+        
         if tr.type_mesure == 'totalisateur' and len(releves) > 1:
             valeurs = []
             for i in range(1, len(releves)):
                 difference = releves[i].valeur - releves[i-1].valeur
                 valeurs.append((releves[i].date, difference))
+        elif tr.nom == 'Eau potable' and len(releves) > 1:
+            # Traitement spécial pour l'eau potable
+            valeurs = []
+            for i in range(1, len(releves)):
+                difference = releves[i].valeur - releves[i-1].valeur
+                valeurs.append((releves[i].date, difference))
+        elif tr.nom == 'Coagulant':
+            # Traitement spécial pour le coagulant
+            valeurs = [(r.date, r.valeur) for r in releves]
         else:
             valeurs = [(r.date, r.valeur) for r in releves]
+        
         data_series.append({
             'nom': tr.nom,
             'site': Site.query.get(tr.site_id).nom,
@@ -1700,8 +1794,8 @@ def init_db():
                 ('Alimentation CAB', 'totalisateur', 'm³', 'quotidien'),
                 ('Eau potable', 'totalisateur', 'm³', 'hebdomadaire', 'lundi'),
                 ('Forage', 'totalisateur', 'm³', 'quotidien'),
-                ('Boue STE', 'basique', 'kg', 'quotidien'),
-                ('Boue STE CAB', 'basique', 'kg', 'quotidien'),
+                ('Boue STE', 'basique', 'pressées', 'quotidien'),
+                ('Boue STE CAB', 'basique', 'pressées', 'quotidien'),
                 ('pH entrée', 'basique', '', 'quotidien'),
                 ('pH sortie', 'basique', '', 'quotidien'),
                 ('Température entrée', 'basique', '°C', 'quotidien'),
@@ -1710,8 +1804,8 @@ def init_db():
                 ('MES entrée', 'basique', 'mg/L', 'quotidien'),
                 ('MES sortie', 'basique', 'mg/L', 'quotidien'),
                 ('Coagulant', 'basique', 'L', 'hebdomadaire', 'lundi'),
-                ('Floculant', 'basique', 'L', 'quotidien'),
-                ('CO2', 'basique', 'kg', 'quotidien')
+                ('Floculant', 'basique', 'kg', 'quotidien'),
+                ('CO2', 'basique', '%', 'quotidien')
             ]
             
             for nom, type_mesure, unite, frequence, *args in types_smp:
@@ -1738,8 +1832,8 @@ def init_db():
                 ('Alimentation CAB', 'totalisateur', 'm³', 'quotidien'),
                 ('Eau de montagne', 'totalisateur', 'm³', 'quotidien'),
                 ('Eau potable', 'totalisateur', 'm³', 'hebdomadaire', 'lundi'),
-                ('Boue STE', 'basique', 'kg', 'quotidien'),
-                ('Boue STE CAB', 'basique', 'kg', 'quotidien'),
+                ('Boue STE', 'basique', 'pressées', 'quotidien'),
+                ('Boue STE CAB', 'basique', 'pressées', 'quotidien'),
                 ('pH entrée', 'basique', '', 'quotidien'),
                 ('pH sortie', 'basique', '', 'quotidien'),
                 ('Température entrée', 'basique', '°C', 'quotidien'),
@@ -1748,8 +1842,8 @@ def init_db():
                 ('MES entrée', 'basique', 'mg/L', 'quotidien'),
                 ('MES sortie', 'basique', 'mg/L', 'quotidien'),
                 ('Coagulant', 'basique', 'L', 'hebdomadaire', 'lundi'),
-                ('Floculant', 'basique', 'L', 'quotidien'),
-                ('CO2', 'basique', 'kg', 'quotidien')
+                ('Floculant', 'basique', 'kg', 'quotidien'),
+                ('CO2', 'basique', '%', 'quotidien')
             ]
             
             for nom, type_mesure, unite, frequence, *args in types_lpz:
@@ -1799,6 +1893,40 @@ def init_db():
             )
             db.session.add(email_config)
             db.session.commit()
+        
+        # Mise à jour des unités pour les types de relevés existants
+        print("🔄 Mise à jour des unités des types de relevés...")
+        
+        # Mise à jour pour SMP
+        smp_types_to_update = {
+            'Boue STE': 'pressées',
+            'Boue STE CAB': 'pressées',
+            'Floculant': 'kg',
+            'CO2': '%'
+        }
+        
+        for nom, nouvelle_unite in smp_types_to_update.items():
+            type_releve = TypeReleve.query.filter_by(nom=nom, site_id=1).first()
+            if type_releve and type_releve.unite != nouvelle_unite:
+                print(f"📝 Mise à jour {nom} SMP: {type_releve.unite} → {nouvelle_unite}")
+                type_releve.unite = nouvelle_unite
+        
+        # Mise à jour pour LPZ
+        lpz_types_to_update = {
+            'Boue STE': 'pressées',
+            'Boue STE CAB': 'pressées',
+            'Floculant': 'kg',
+            'CO2': '%'
+        }
+        
+        for nom, nouvelle_unite in lpz_types_to_update.items():
+            type_releve = TypeReleve.query.filter_by(nom=nom, site_id=2).first()
+            if type_releve and type_releve.unite != nouvelle_unite:
+                print(f"📝 Mise à jour {nom} LPZ: {type_releve.unite} → {nouvelle_unite}")
+                type_releve.unite = nouvelle_unite
+        
+        db.session.commit()
+        print("✅ Mise à jour des unités terminée")
 
 # Liste des pages gérables pour les droits
 PAGE_NAMES = [
